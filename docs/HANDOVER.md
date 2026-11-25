@@ -144,6 +144,7 @@ Each row is a stage in the full regression (`--only=<stage>`), its spec location
 
 | Stage | Specs | Covers |
 |---|---|---|
+| `login` | `tests/login.spec.js` | Login with configured credentials |
 | `setup-tickets` | `tests/setup/ensureTickets.spec.js` | **Setup, not a test.** Makes sure the event's Project Start is early enough and that it has tickets (adds Earlybird / Main / VIP if there are none) |
 | `event-dashboard` | `tests/eventDashboard.spec.js` | Quick Create shortcuts (budget entry, purchase order, ticket type, supplier invoice), search |
 | `purchase-order` | `tests/budgeting/purchaseOrder.spec.js` | Purchase orders from budget entries |
