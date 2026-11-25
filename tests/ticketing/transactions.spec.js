@@ -69,7 +69,11 @@ test.describe('Ticketing Transactions', () => {
         await test.step('The channel filter narrows the records', async () => {
             const filter = page.locator('select').filter({ hasText: 'All Channels' }).first();
             await filter.selectOption({ label: 'Showing: Direct Sales' });
-            await page.waitForTimeout(1200);
+            await expect.poll(async () => {
+                const records = await transactions.readRecords();
+                return records.length > 0 && records.every(record => record.channel === 'Direct Sales');
+            })
+                .toBe(true);
             const shown = await transactions.readRecords();
             expect(shown.length).toBeGreaterThan(0);
             expect(shown.every(record => record.channel === 'Direct Sales')).toBe(true);
