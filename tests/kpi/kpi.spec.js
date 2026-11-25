@@ -25,8 +25,7 @@ const isReportSave = r => r.request().method() === 'PUT' && /\/kpi-report\/\d+$/
 async function openReport(page, eventUrl = EVENT_URL) {
     await page.goto(`${eventUrl}/kpi-dashboard`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('button', { name: 'Save' })).toBeVisible({ timeout: 30000 });
-    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
-    await page.waitForTimeout(1500);
+    await expect(page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 15000 });
 }
 
 // A report row: its Budgeted, Actual and (read-only) Variance inputs.
@@ -69,7 +68,6 @@ test.describe('KPI Dashboard', () => {
     test('Show Info: Day, Date and Venue come from the event, and the Event Running Time is typed in and kept', async ({ page }) => {
         const settings = new EventSettingsPage(page);
         await settings.gotoGeneralSettings(EVENT_URL);
-        await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
         const eventDate = new Date(`${(await settings.eventDateInput.inputValue()).trim()} 12:00`);
         const addressLine1 = (await settings.addressLine1Input.inputValue()).trim();
         const city = (await settings.cityInput.inputValue()).trim();
