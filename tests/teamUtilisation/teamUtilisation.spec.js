@@ -20,8 +20,8 @@ const percent = text => parseFloat(String(text).replace(/[^\d.]/g, ''));
 const round = (n, dp = 2) => Math.round(n * 10 ** dp) / 10 ** dp;
 
 async function settle(page) {
-    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
-    await page.waitForTimeout(1500);
+    await expect(page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 15000 });
+    await expect(page.locator('table tbody tr').first()).toBeVisible({ timeout: 15000 });
 }
 
 async function open(page, url, heading) {
