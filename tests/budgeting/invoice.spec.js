@@ -125,8 +125,9 @@ async function setPaymentDate(page, row) {
 
 // Raises an invoice for a Xero-linked supplier, credits it in full, then checks the credit note is
 // still applied once the invoice has been through the Xero sync (PO > Invoices tab from a fresh load).
-// raiseAfterSync: wait for the "pushed to Xero" message (plus a settling pause) before raising the
-// credit note, instead of raising it straight after the invoice is created.
+// The Xero job has no completion signal after the toast, so the short settling pause remains before
+// reopening the invoice list and checking that it is outstanding before the credit note is raised.
+// raiseAfterSync delays raising the credit note until the invoice is pushed to Xero.
 async function creditNoteOnXeroInvoice(page, { raiseAfterSync }) {
     const { entryTitle, poDrawer } = await createApprovedPO(page);
     const poAmount = amountOf(await poDrawer.getByText(/£[\d,]+\.\d{2}/).first().innerText());
@@ -143,6 +144,7 @@ async function creditNoteOnXeroInvoice(page, { raiseAfterSync }) {
     if (raiseAfterSync) {
         await test.step('Wait for the invoice to be pushed to Xero', async () => {
             await expect(page.getByText(/successfully pushed to Xero/i).first()).toBeVisible({ timeout: 30000 });
+            // The toast confirms submission, not completion of the asynchronous Xero sync.
             await page.waitForTimeout(15000);
             invoices = await budgetingPage.openPOInvoicesForEntry(entryTitle);
             await expectAmount(
@@ -169,6 +171,7 @@ async function creditNoteOnXeroInvoice(page, { raiseAfterSync }) {
         if (!raiseAfterSync) {
             await expect(page.getByText(/successfully pushed to Xero/i).first()).toBeVisible({ timeout: 30000 });
         }
+        // The invoice sync runs as a server-side job with no UI completion indicator to wait on.
         await page.waitForTimeout(20000);
         const revisited = await budgetingPage.openPOInvoicesForEntry(entryTitle);
         const row = revisited.locator('tr').filter({ hasText: invoiceNumber }).first();
@@ -192,8 +195,7 @@ test.describe('Purchase supplier invoices', () => {
         const titles = createdEntries.splice(0);
         if (!CLEANUP) return;
         for (const title of titles) {
-            await budgetingPage.deleteEntryWithPurchaseOrder(title)
-                .catch(error => console.log(`⚠️ Clean-up of ${title} failed: ${error.message.split('\n')[0]}`));
+            await budgetingPage.deleteEntryWithPurchaseOrder(title);
         }
     });
 
@@ -514,7 +516,7 @@ test.describe('Purchase supplier invoices', () => {
         await test.step("The PO's Invoices tab shows the credit note (\"CR\") next to the total", async () => {
             // The list behind the modal doesn't refresh by itself — note it, then revisit the tab.
             const liveRow = poDrawer.locator('tr').filter({ hasText: invoiceNumber }).first();
-            if (!/CR/.test(await liveRow.innerText().catch(() => ''))) {
+            if (!/CR/.test(await liveRow.innerText())) {
                 test.info().annotations.push({
                     type: 'known-issue',
                     description: "PO > Invoices tab doesn't show the credit note until the page is reloaded",
@@ -588,9 +590,8 @@ test.describe('Purchase supplier invoices', () => {
         expect(await budgetingPage.deleteOpenSupplierInvoice(), 'Invoice deleted').toBe(204);
 
         await test.step("The PO's Invoices tab no longer lists the invoice", async () => {
-            // The list behind the modal doesn't refresh by itself — note it, then revisit the tab.
-            await page.waitForTimeout(2000);
-            if (await invoiceRow.isVisible().catch(() => false)) {
+            // The list behind the modal doesn't refresh by itself; check its current state, then revisit the tab.
+            if (await invoiceRow.isVisible()) {
                 test.info().annotations.push({
                     type: 'known-issue',
                     description: "PO > Invoices tab still lists a deleted invoice until the page is reloaded",
