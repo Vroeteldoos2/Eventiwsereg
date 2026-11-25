@@ -29,7 +29,7 @@ export class TicketsPage {
         // A category's "Expand all" can leave a ticket collapsed (it depends on what was open already): open the rest one by one.
         const collapsed = this.page.getByRole('button', { name: 'Expand ticket' });
         for (let i = await collapsed.count(); i > 0; i--) await collapsed.first().click();
-        await this.page.waitForTimeout(1200);
+        await expect(collapsed).toHaveCount(0);
     }
 
     // The card of one ticket (its figures row plus, once expanded, its sales channels).
@@ -86,7 +86,7 @@ export class TicketsPage {
         await cell.click({ clickCount: 3 });
         await this.page.keyboard.type(String(value), { delay: 30 });
         await this.page.keyboard.press('Tab');
-        await this.page.waitForTimeout(600);
+        await expect(this.unsavedChangesBanner()).toBeVisible({ timeout: 10000 });
     }
 
     unsavedChangesBanner() {
@@ -96,7 +96,6 @@ export class TicketsPage {
     async saveChanges() {
         await this.page.getByRole('button', { name: 'Save Changes', exact: true }).click();
         await expect(this.unsavedChangesBanner()).toBeHidden({ timeout: 20000 });
-        await this.page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
     }
 
     // Menu of a sales channel row ("Ticket sale actions"): returns the items shown.
@@ -118,15 +117,16 @@ export class TicketsPage {
 
     async closeMenus() {
         await this.page.mouse.click(1000, 900);
-        await this.page.waitForTimeout(400);
+        await expect(this.page.locator('.v-popper__popper--shown')).toBeHidden({ timeout: 5000 });
     }
 
     // Tax rate of a sales channel row ("20%" button → list of rates).
     async setChannelTax(ticket, supplier, rate) {
-        await this.sellerRow(ticket, supplier).locator('button:not([aria-label])').first().click();
+        const taxButton = this.sellerRow(ticket, supplier).locator('button:not([aria-label])').first();
+        await taxButton.click();
         const list = this.page.locator('.v-popper__popper--shown').last();
         await list.getByText(rate, { exact: true }).click();
-        await this.page.waitForTimeout(600);
+        await expect(taxButton).toContainText(rate);
     }
 
     // ── BANK TRANSACTIONS ────────────────────────────────────────────────────────
@@ -149,10 +149,14 @@ export class TicketsPage {
     // Row menu > View Bank Transactions: [{ from, loggedBy, date, amount }] (the dialog is left open).
     async openBankTransactions(ticket, supplier) {
         const menu = await this.openChannelMenu(ticket, supplier);
+        const transactionsLoaded = this.page.waitForResponse(
+            response => response.request().method() === 'GET' && /\/bank-transactions(?:\?|$)/.test(response.url()),
+            { timeout: 15000 },
+        );
         await menu.getByText('View Bank Transactions', { exact: true }).click();
+        await transactionsLoaded;
         const dialog = this.page.locator('.m-wrapper').filter({ hasText: 'Bank Transactions' }).last();
         await dialog.waitFor({ state: 'visible', timeout: 10000 });
-        await this.page.waitForTimeout(1200);
         return dialog;
     }
 
@@ -170,13 +174,17 @@ export class TicketsPage {
             const base = `/api/account/${account}/event/${event}`;
             const xsrf = decodeURIComponent((document.cookie.match(/XSRF-TOKEN=([^;]+)/) || [])[1] || '');
             const headers = { Accept: 'application/json', 'X-XSRF-TOKEN': xsrf, 'X-Requested-With': 'XMLHttpRequest' };
-            const ticket = (await (await fetch(`${base}/tickets`, { headers, credentials: 'same-origin' })).json()).find(t => t.name === ticketName);
+            const ticketsResponse = await fetch(`${base}/tickets`, { headers, credentials: 'same-origin' });
+            if (!ticketsResponse.ok) throw new Error(`Could not load tickets for bank-transaction cleanup: ${ticketsResponse.status}`);
+            const ticket = (await ticketsResponse.json()).find(t => t.name === ticketName);
+            if (!ticket) throw new Error(`Could not find test ticket ${ticketName} for bank-transaction cleanup`);
             const deleted = [];
             for (const sale of ticket?.ticket_sales ?? []) {
                 const list = await (await fetch(`${base}/ticket-types/${ticket.id}/sales-channels/${sale.id}/bank-transactions?paginated=1&perPage=100&page=1`, { headers, credentials: 'same-origin' })).json();
                 for (const transaction of list.data ?? []) {
                     if (!/^AutoBankTx_\d+$/.test(transaction.name)) continue;
                     const response = await fetch(`${base}/transactions/${transaction.id}`, { method: 'DELETE', headers, credentials: 'same-origin' });
+                    if (!response.ok) throw new Error(`Could not delete bank transaction ${transaction.name}: ${response.status}`);
                     deleted.push(`${transaction.name}:${response.status}`);
                 }
             }
