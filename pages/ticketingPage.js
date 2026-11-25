@@ -504,9 +504,14 @@ export class TicketingPage {
                 const x = cx + dx;
                 const y = cy + dy;
                 await this.page.mouse.click(x, y);
-                // Canvas hit testing has no DOM event to await; allow the canvas click handler to render its dialog.
-                await this.page.waitForTimeout(200);
-                if (await removeDialog.isVisible()) {
+                // Canvas hit testing has no DOM event, so probe briefly for the dialog the click may open.
+                const dialogOpened = await removeDialog.waitFor({ state: 'visible', timeout: 200 })
+                    .then(() => true)
+                    .catch(error => {
+                        if (error.name === 'TimeoutError') return false;
+                        throw error;
+                    });
+                if (dialogOpened) {
                     return { x, y };
                 }
             }
