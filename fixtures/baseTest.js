@@ -1,89 +1,42 @@
-
-
 import { test as base } from '@playwright/test';
-import { LoginPage } from '../pages/loginPage.js';
-import { DashboardPage } from '../pages/dashboardPage.js';
-import { BudgetingPage } from '../pages/budgetingPage.js';
-import { TestHelpers } from '../tests/utils/test-helpers.js';
-import { TeamMembersPage } from '../pages/teamMembers.js';
-import { TicketingPage } from '../pages/ticketingPage.js';
-import { RevenuePage } from '../pages/revenuePage.js';
-import { PurchasingPage } from '../pages/purchasingPage.js';
-import { EventSettingsPage } from '../pages/eventSettingsPage.js';
-
-
-
-// 1. Load .env at the very top of the fixture file
-
-// --- ES MODULE FIX ---
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { ApprovalsPage } from '../pages/approvalsPage.js';
+import { BudgetingPage } from '../pages/budgetingPage.js';
+import { DashboardPage } from '../pages/dashboardPage.js';
+import { EventSettingsPage } from '../pages/eventSettingsPage.js';
+import { LoginPage } from '../pages/loginPage.js';
+import { newEventCreation } from '../pages/newEventCreation.js';
+import { PurchasingPage } from '../pages/purchasingPage.js';
+import { RevenuePage } from '../pages/revenuePage.js';
+import { TeamMembersPage } from '../pages/teamMembers.js';
+import { TicketingDashboardPage } from '../pages/ticketingDashboardPage.js';
+import { TicketingPage } from '../pages/ticketingPage.js';
+import { TicketsPage } from '../pages/ticketingTicketsPage.js';
+import { TransactionsPage } from '../pages/ticketingTransactionsPage.js';
+import { TrendsPage } from '../pages/ticketingTrendsPage.js';
+import { TestHelpers } from '../tests/utils/test-helpers.js';
 
-// These two lines recreate __dirname for ES Modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// This points to the .env in your root folder
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
-
+const filename = fileURLToPath(import.meta.url);
+dotenv.config({ path: path.resolve(path.dirname(filename), '../.env') });
 
 export const test = base.extend({
-  loginPage: async ({ page }, use) => {
-    await use(new LoginPage(page));
-  },
-
-  dashboardPage: async ({ page }, use) => {
-    await use(new DashboardPage(page));
-  },
-
-  // This fixture provides the Budgeting Module page object to the tests
-
-    budgetingPage: async ({ page }, use) => {
-    await use(new BudgetingPage(page));
-  },
-  
-// Define 'helpers' as a fixture
-    helpers: async ({ page }, use) => {
-        const helpers = new TestHelpers(page);
-        await use(helpers);
-    },
-
-    teamMembersPage: async ({ page }, use) => {
-        await use(new TeamMembersPage(page));
-    },
-
-    ticketingPage: async ({ page }, use) => {
-        await use(new TicketingPage(page));
-    },
-
-    revenuePage: async ({ page }, use) => {
-        await use(new RevenuePage(page));
-    },
-
-    purchasingPage: async ({ page }, use) => {
-        await use(new PurchasingPage(page));
-    },
-
-    eventSettingsPage: async ({ page }, use) => {
-        await use(new EventSettingsPage(page));
-    },
-
+    loginPage: async ({ page }, use) => use(new LoginPage(page)),
+    dashboardPage: async ({ page }, use) => use(new DashboardPage(page)),
+    budgetingPage: async ({ page }, use) => use(new BudgetingPage(page)),
+    helpers: async ({ page }, use) => use(new TestHelpers(page)),
+    teamMembersPage: async ({ page }, use) => use(new TeamMembersPage(page)),
+    ticketingPage: async ({ page }, use) => use(new TicketingPage(page)),
+    ticketingDashboardPage: async ({ page }, use) => use(new TicketingDashboardPage(page)),
+    ticketsPage: async ({ page }, use) => use(new TicketsPage(page)),
+    transactionsPage: async ({ page }, use) => use(new TransactionsPage(page)),
+    trendsPage: async ({ page }, use) => use(new TrendsPage(page)),
+    revenuePage: async ({ page }, use) => use(new RevenuePage(page)),
+    purchasingPage: async ({ page }, use) => use(new PurchasingPage(page)),
+    eventSettingsPage: async ({ page }, use) => use(new EventSettingsPage(page)),
+    approvalsPage: async ({ page }, use) => use(new ApprovalsPage(page)),
+    newEventCreationPage: async ({ page }, use) => use(new newEventCreation(page)),
 });
 
 export { expect } from '@playwright/test';
-
-// export expect so tests can use the same one
-// export const expect = baseExpect;
-
-
-
-
-
-
-
-
-
-
-
-
