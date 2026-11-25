@@ -1,0 +1,47 @@
+{
+  "name": "eventwisecodegen",
+  "version": "1.0.0",
+  "scripts": {
+    "test:accountDashboardTests": "playwright test tests/accountDashboardTests.spec.js --headed",
+    "test:accountEntries": "playwright test tests/accountEntries.spec.js --headed",
+    "test:accountSalesInvoices": "playwright test tests/accountSalesInvoices.spec.js --headed",
+    "test:eventDashboard": "playwright test tests/eventDashboard.spec.js --headed",
+    "test:budgetingTotals": "playwright test tests/budgeting/budgetingTotals.spec.js --headed",
+    "test:budgetEntry": "playwright test tests/budgeting/budgetEntry.spec.js --headed",
+    "test:purchaseOrder": "playwright test tests/budgeting/purchaseOrder.spec.js --headed",
+    "test:invoice": "playwright test tests/budgeting/invoice.spec.js --headed",
+    "test:pricePerHead": "playwright test tests/budgeting/pricePerHead.spec.js --headed",
+    "test:revenueTickets": "playwright test tests/revenue/revenueTickets.spec.js --headed",
+    "test:revenue": "playwright test tests/revenue/revenue.spec.js --headed",
+    "test:kpi": "playwright test tests/kpi/ --headed",
+    "test:reporting": "playwright test tests/accountSettings/reporting.spec.js --headed",
+    "test:teamUtilisation": "playwright test tests/teamUtilisation/ --headed",
+    "test:accountSettings": "playwright test tests/accountSettings/ --headed",
+    "test:eventSettings": "playwright test tests/eventSettings/ --headed",
+    "test:approvals": "playwright test tests/approvals/ --headed",
+    "test:purchasing": "playwright test tests/purchasing/ --headed",
+    "test:budgetVActuals": "playwright test tests/budgetVActuals/ --headed",
+    "test:budgeting": "playwright test tests/budgeting/ --headed",
+    "test:fullRegression": "node scripts/fullRegression.js",
+    "test:smoke": "npm run test:accountDashboardTests && npm run test:eventDashboard && npm run test:budgetingTotals && npm run test:ticketing",
+    "test:daily": "npm run test:smoke && npm run test:budgetEntry && npm run test:purchaseOrder && npm run test:invoice",
+    "test:ticketing": "playwright test tests/ticketing/ --headed",
+    "test:ticketing:dashboard": "playwright test tests/ticketing/dashboard.spec.js --headed",
+    "test:ticketing:trends": "playwright test tests/ticketing/trends.spec.js --headed",
+    "test:ticketing:tickets": "playwright test tests/ticketing/tickets.spec.js --headed",
+    "report": "playwright show-report"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "type": "module",
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^25.3.0",
+    "pdfjs-dist": "^4.10.38"
+  },
+  "dependencies": {
+    "dotenv": "^17.3.1"
+  }
+}
