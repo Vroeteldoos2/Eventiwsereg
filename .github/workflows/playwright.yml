@@ -32,6 +32,7 @@ jobs:
       - name: Create test environment
         shell: pwsh
         env:
+          ENV_FILE: ${{ secrets.ENV_FILE }}
           USER_EMAIL: ${{ secrets.USER_EMAIL }}
           USER_PASSWORD: ${{ secrets.USER_PASSWORD }}
           QA_EMAIL: ${{ secrets.QA_EMAIL }}
@@ -56,32 +57,36 @@ jobs:
           EVENT_SETTINGS_EVENT_URL: ${{ secrets.EVENT_SETTINGS_EVENT_URL }}
           UTILISATION_TEAM_MEMBER: ${{ vars.UTILISATION_TEAM_MEMBER }}
         run: |
-          @(
-            "BASE_URL=https://eventwise.synergi.dev"
-            "USER_EMAIL=$env:USER_EMAIL"
-            "USER_PASSWORD=$env:USER_PASSWORD"
-            "QA_EMAIL=$env:QA_EMAIL"
-            "APPROVALS_EVENT_URL=$env:APPROVALS_EVENT_URL"
-            "BUDGET_EVENT_URL=$env:BUDGET_EVENT_URL"
-            "BVA_EVENT_URL=$env:BVA_EVENT_URL"
-            "DASHBOARD_EVENT_URL=$env:DASHBOARD_EVENT_URL"
-            "ENSURE_TICKETS_EVENT_URL=$env:ENSURE_TICKETS_EVENT_URL"
-            "EVENT_SETTINGS_TEST_EVENT_URL=$env:EVENT_SETTINGS_TEST_EVENT_URL"
-            "EXISTING_EVENT_URL=$env:EXISTING_EVENT_URL"
-            "INVOICE_EVENT_URL=$env:INVOICE_EVENT_URL"
-            "KPI_CLOSED_EVENT_URL=$env:KPI_CLOSED_EVENT_URL"
-            "KPI_EVENT_URL=$env:KPI_EVENT_URL"
-            "PRICE_PER_HEAD_EVENT_URL=$env:PRICE_PER_HEAD_EVENT_URL"
-            "PURCHASING_EVENT_URL=$env:PURCHASING_EVENT_URL"
-            "REVENUE_EVENT_URL=$env:REVENUE_EVENT_URL"
-            "REVENUE_TICKETS_EVENT_URL=$env:REVENUE_TICKETS_EVENT_URL"
-            "TICKETING_BULK_ENTRY_URL=$env:TICKETING_BULK_ENTRY_URL"
-            "TICKETING_EVENT_URL=$env:TICKETING_EVENT_URL"
-            "TICKETING_REGRESSION_EVENT_URL=$env:TICKETING_REGRESSION_EVENT_URL"
-            "TICKETING_TEST_EVENT_URL=$env:TICKETING_TEST_EVENT_URL"
-            "EVENT_SETTINGS_EVENT_URL=$env:EVENT_SETTINGS_EVENT_URL"
-            "UTILISATION_TEAM_MEMBER=$env:UTILISATION_TEAM_MEMBER"
-          ) | Set-Content -Path .env -Encoding utf8
+          if ($env:ENV_FILE) {
+            [System.IO.File]::WriteAllText(".env", $env:ENV_FILE, [System.Text.UTF8Encoding]::new($false))
+          } else {
+            @(
+              "BASE_URL=https://eventwise.synergi.dev"
+              "USER_EMAIL=$env:USER_EMAIL"
+              "USER_PASSWORD=$env:USER_PASSWORD"
+              "QA_EMAIL=$env:QA_EMAIL"
+              "APPROVALS_EVENT_URL=$env:APPROVALS_EVENT_URL"
+              "BUDGET_EVENT_URL=$env:BUDGET_EVENT_URL"
+              "BVA_EVENT_URL=$env:BVA_EVENT_URL"
+              "DASHBOARD_EVENT_URL=$env:DASHBOARD_EVENT_URL"
+              "ENSURE_TICKETS_EVENT_URL=$env:ENSURE_TICKETS_EVENT_URL"
+              "EVENT_SETTINGS_TEST_EVENT_URL=$env:EVENT_SETTINGS_TEST_EVENT_URL"
+              "EXISTING_EVENT_URL=$env:EXISTING_EVENT_URL"
+              "INVOICE_EVENT_URL=$env:INVOICE_EVENT_URL"
+              "KPI_CLOSED_EVENT_URL=$env:KPI_CLOSED_EVENT_URL"
+              "KPI_EVENT_URL=$env:KPI_EVENT_URL"
+              "PRICE_PER_HEAD_EVENT_URL=$env:PRICE_PER_HEAD_EVENT_URL"
+              "PURCHASING_EVENT_URL=$env:PURCHASING_EVENT_URL"
+              "REVENUE_EVENT_URL=$env:REVENUE_EVENT_URL"
+              "REVENUE_TICKETS_EVENT_URL=$env:REVENUE_TICKETS_EVENT_URL"
+              "TICKETING_BULK_ENTRY_URL=$env:TICKETING_BULK_ENTRY_URL"
+              "TICKETING_EVENT_URL=$env:TICKETING_EVENT_URL"
+              "TICKETING_REGRESSION_EVENT_URL=$env:TICKETING_REGRESSION_EVENT_URL"
+              "TICKETING_TEST_EVENT_URL=$env:TICKETING_TEST_EVENT_URL"
+              "EVENT_SETTINGS_EVENT_URL=$env:EVENT_SETTINGS_EVENT_URL"
+              "UTILISATION_TEAM_MEMBER=$env:UTILISATION_TEAM_MEMBER"
+            ) | Set-Content -Path .env -Encoding utf8
+          }
 
       - name: Run full regression
         shell: pwsh
