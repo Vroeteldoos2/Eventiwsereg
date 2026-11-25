@@ -29,6 +29,11 @@ const isoDate = (daysAhead = 0) => {
 };
 const stamp = () => Date.now().toString().slice(-8);
 const near = (actual, expected, message) => expect(actual, message).toBeCloseTo(expected, 2);
+const expandedOrderTable = () => purchasingPage.departmentsSection().locator('tr.expanded-row table').first();
+
+async function waitForPurchaseOrders() {
+    await expect(expandedOrderTable()).toBeVisible({ timeout: 15000 });
+}
 
 // Creates an AutoTest-PUR-<n> budget entry (£120) in the first department and approves it, which creates its Draft PO.
 async function createApprovedEntry(page) {
@@ -105,8 +110,7 @@ test.describe('Purchasing', () => {
         const titles = createdEntries.splice(0);
         if (!CLEANUP) return;
         for (const title of titles) {
-            await budgetingPage.deleteEntryWithPurchaseOrder(title)
-                .catch(error => console.log(`⚠️ Clean-up of ${title} failed: ${error.message.split('\n')[0]}`));
+            await budgetingPage.deleteEntryWithPurchaseOrder(title);
         }
     });
 
@@ -159,7 +163,7 @@ test.describe('Purchasing', () => {
             const checked = [];
             for (const department of departments.filter(d => d.actual > 0)) {
                 await purchasingPage.departmentRow(department.name).click();
-                await page.waitForTimeout(1500);
+                await waitForPurchaseOrders();
                 const orders = await purchasingPage.readDepartmentPurchaseOrders(department.name);
                 expect(orders.length, `${department.name}: purchase orders listed`).toBeGreaterThan(0);
                 for (const order of orders) {
@@ -172,6 +176,7 @@ test.describe('Purchasing', () => {
                 near(sum('Invoiced'), department.invoiced, `${department.name}: Invoiced = invoiced value of its purchase orders`);
                 near(sum('Outstanding'), department.outstanding, `${department.name}: Outstanding = outstanding value of its purchase orders`);
                 await purchasingPage.departmentRow(department.name).click();
+                await expect(expandedOrderTable()).toBeHidden({ timeout: 15000 });
                 checked.push(department.name);
             }
             expect(checked.length, 'Departments with purchase orders checked').toBeGreaterThan(0);
@@ -260,12 +265,13 @@ test.describe('Purchasing', () => {
                 await page.keyboard.press('Escape');
                 await purchasingPage.gotoPurchasingSummary();
                 await purchasingPage.departmentRow(department.name).click();
-                await page.waitForTimeout(1500);
+                await waitForPurchaseOrders();
                 const order = (await purchasingPage.readDepartmentPurchaseOrders(department.name)).find(o => o.Title === title);
                 expect(order, `${title} listed under ${department.name}`).toBeTruthy();
                 expect(order).toMatchObject({ Status: expect.stringMatching(/Draft/), Subcategory: expect.stringContaining(SUBCATEGORY), Supplier: expect.stringContaining(SUPPLIER) });
                 near(purchasingPage.money(order.Committed), 500, 'PO value in the list');
                 await purchasingPage.departmentRow(department.name).click();
+                await expect(expandedOrderTable()).toBeHidden({ timeout: 15000 });
 
                 const after = (await purchasingPage.readDepartments()).find(d => d.name === department.name);
                 for (const key of ['budgeted', 'actual', 'invoiced', 'outstanding']) near(after[key], before.department[key], `${key} unchanged by a Draft PO`);
@@ -275,13 +281,13 @@ test.describe('Purchasing', () => {
 
             await test.step('Delete the Draft PO', async () => {
                 await purchasingPage.departmentRow(department.name).click();
-                await page.waitForTimeout(1500);
+                await waitForPurchaseOrders();
                 await page.locator('tr').filter({ hasText: title }).last().locator('button').last().click();
                 await purchasingPage.deleteOpenDraftPurchaseOrder();
                 created = false;
                 await purchasingPage.gotoPurchasingSummary();
                 await purchasingPage.departmentRow(department.name).click();
-                await page.waitForTimeout(1500);
+                await waitForPurchaseOrders();
                 const orders = await purchasingPage.readDepartmentPurchaseOrders(department.name);
                 expect(orders.map(o => o.Title), 'Deleted PO no longer listed').not.toContain(title);
             });
@@ -289,9 +295,9 @@ test.describe('Purchasing', () => {
             if (created) {
                 await purchasingPage.gotoPurchasingSummary();
                 await purchasingPage.departmentRow(department.name).click();
-                await page.waitForTimeout(1500);
-                await page.locator('tr').filter({ hasText: title }).last().locator('button').last().click().catch(() => {});
-                await purchasingPage.deleteOpenDraftPurchaseOrder().catch(error => console.log(`⚠️ Clean-up of ${title} failed: ${error.message.split('\n')[0]}`));
+                await waitForPurchaseOrders();
+                await page.locator('tr').filter({ hasText: title }).last().locator('button').last().click();
+                await purchasingPage.deleteOpenDraftPurchaseOrder();
             }
         }
     });
