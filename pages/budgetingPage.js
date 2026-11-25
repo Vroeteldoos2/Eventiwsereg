@@ -26,6 +26,13 @@ export class BudgetingPage {
         this.helpers = new TestHelpers(page);
     }
 
+    async waitForLoadingOverlay(timeout = 30000) {
+        await Promise.all([
+            expect(this.page.locator('text=Loading Information')).toBeHidden({ timeout }),
+            expect(this.page.locator('text=Loading...')).toBeHidden({ timeout }),
+        ]);
+    }
+
     async gotoBudgetSummaryPage() {
 
         if (!this.eventBaseUrl) {
@@ -36,14 +43,7 @@ export class BudgetingPage {
             timeout: 60000
         });
 
-        // Wait for any loading spinner variants to disappear
-        await Promise.all([
-            this.page.locator('text=Loading Information').waitFor({ state: 'hidden', timeout: 30000 }).catch(() => {}),
-            this.page.locator('text=Loading...').waitFor({ state: 'hidden', timeout: 30000 }).catch(() => {}),
-        ]);
-
-        // Wait for all data API calls to complete
-        await this.page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+        await this.waitForLoadingOverlay();
 
         // Confirm the page shell is ready (h4 heading always renders even with no data).
         // The "page-title" class was dropped from these headings in a UI redesign — match on the h4 tag alone.
@@ -121,10 +121,8 @@ export class BudgetingPage {
         for (let i = 0; i < count; i++) {
             const row = rows.nth(i);
 
-            const fixedText = await row.locator('div.ew-figure.fixed span').last()
-                .innerText().catch(() => '');
-            const budgetedText = await row.locator('div.ew-figure.budgeted span').last()
-                .innerText().catch(() => '');
+            const fixedText = await row.locator('div.ew-figure.fixed span').last().innerText();
+            const budgetedText = await row.locator('div.ew-figure.budgeted span').last().innerText();
 
             // Log each row so we can see exactly what's being summed
             console.log(`  row[${i}] fixed="${fixedText.trim()}" budgeted="${budgetedText.trim()}"`);
@@ -194,21 +192,17 @@ export class BudgetingPage {
         for (const [name, checked] of Object.entries(columns)) {
             if (!(name in previous)) throw new Error(`Column "${name}" not offered (have: ${Object.keys(previous).join(', ')})`);
             await labels.filter({ hasText: new RegExp(`^\\s*${name}\\s*$`) }).locator('input').setChecked(checked);
-            await this.page.waitForTimeout(300);
         }
 
         await modal.locator('button.m-close').click();
-        await modal.waitFor({ state: 'hidden', timeout: 10000 });
-        await this.page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
-        await this.page.waitForTimeout(800);
+        await expect(modal).toBeHidden({ timeout: 10000 });
         return previous;
     }
 
     async gotoBudgetVActualsPage() {
         if (!this.eventBaseUrl) throw new Error('eventBaseUrl is not set');
         await this.page.goto(`${this.eventBaseUrl}/budget-v-actuals`, { waitUntil: 'domcontentloaded', timeout: 60000 });
-        await this.page.locator('text=Loading Information').waitFor({ state: 'hidden', timeout: 30000 }).catch(() => {});
-        await this.page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+        await this.waitForLoadingOverlay();
         await this.page.locator('div.ew-data-table').filter({ hasText: 'Cost Departments' }).first()
             .waitFor({ state: 'visible', timeout: 30000 });
     }
@@ -236,8 +230,7 @@ export class BudgetingPage {
 
             if (!isSelected) {
                 await badge.click();
-                // Wait for numbers to update
-                await this.page.waitForTimeout(500);
+                await expect(badge).toHaveClass(/selected/);
             }
         }
     }
@@ -247,10 +240,9 @@ export class BudgetingPage {
         const expandButtons = this.page.locator('span, a, button').filter({ hasText: /^Expand all$/i });
 
         const count = await expandButtons.count();
-        for (let i = 0; i < count; i++) {
+        while (await expandButtons.count()) {
             // Use force to ensure we don't accidentally click a row behind an overlay
-            await expandButtons.nth(i).click({ force: true });
-            await this.page.waitForTimeout(500);
+            await expandButtons.first().click({ force: true });
         }
         return count;
     }
@@ -270,7 +262,7 @@ export class BudgetingPage {
 
         const count = await rows.count();
         for (let i = 0; i < count; i++) {
-            const heading = await rows.nth(i).locator('h6, h5, h4, td, span').first().innerText().catch(() => '');
+            const heading = await rows.nth(i).locator('h6, h5, h4, td, span').first().innerText();
             if (heading.split('\n')[0].trim() === name) return i;
         }
         throw new Error(`Cost department "${name}" not found in the Cost Departments table`);
@@ -295,9 +287,7 @@ export class BudgetingPage {
         }
 
         const row = rows.nth(safeIndex);
-        const deptName = await row.locator('h6, h5, h4, td, span').first().innerText({ timeout: 5000 })
-            .then(t => t.trim())
-            .catch(() => `Department ${safeIndex}`);
+        const deptName = (await row.locator('h6, h5, h4, td, span').first().innerText({ timeout: 5000 })).trim();
         console.log(`📂 Opening department [${index}]: ${deptName}`);
         await row.click();
 
@@ -324,9 +314,7 @@ export class BudgetingPage {
             .first();
 
         const firstRow = section.locator('tr.tw-cursor-pointer').first();
-        const deptName = await firstRow.locator('h6, h5, h4, td, span').first().innerText({ timeout: 5000 })
-            .then(t => t.trim())
-            .catch(() => 'Department 0');
+        const deptName = (await firstRow.locator('h6, h5, h4, td, span').first().innerText({ timeout: 5000 })).trim();
         console.log(`📂 Opening department: ${deptName}`);
         await firstRow.click();
 
@@ -355,7 +343,6 @@ export class BudgetingPage {
         // Title
         const titleInput = this.page.getByPlaceholder('Title');
         await titleInput.fill(title);
-        await this.page.waitForTimeout(300);
 
         if (!subcategory) {
             throw new Error(`BUDGET subcategory is required to create budget entry "${title}"`);
@@ -363,40 +350,31 @@ export class BudgetingPage {
 
         // Subcategory — Tab from Title into multiselect
         await titleInput.press('Tab');
-        await this.page.waitForTimeout(300);
         await this.page.keyboard.type(subcategory, { delay: 40 });
-        await this.page.waitForTimeout(600);
+        await expect(this.page.locator('.v-popper__popper--shown').last()).toBeVisible({ timeout: 10000 });
         await this.page.keyboard.press('ArrowDown');
         await this.page.keyboard.press('Enter');
-        await this.page.waitForTimeout(500);
 
         // Supplier — Tab from Subcategory
         await this.page.keyboard.press('Tab');
-        await this.page.waitForTimeout(300);
         await this.page.keyboard.type(supplier, { delay: 40 });
-        await this.page.waitForTimeout(700);
+        await expect(this.page.locator('.v-popper__popper--shown').last()).toBeVisible({ timeout: 10000 });
         await this.page.keyboard.press('ArrowDown');
         await this.page.keyboard.press('Enter');
-        await this.page.waitForTimeout(500);
 
         // Fixed Cost — Tab from Supplier, fill value
         await this.page.keyboard.press('Tab');
-        await this.page.waitForTimeout(200);
         await this.page.keyboard.press('Control+a');
         await this.page.keyboard.type(fixedCost.toString());
-        await this.page.waitForTimeout(200);
 
         // Budgeted Cost — Tab from Fixed Cost
         await this.page.keyboard.press('Tab');
-        await this.page.waitForTimeout(200);
         await this.page.keyboard.press('Control+a');
         await this.page.keyboard.type(budgetedCost.toString());
-        await this.page.waitForTimeout(300);
         await this.page.keyboard.press('Tab');
-        await this.page.waitForTimeout(300);
 
         // Click Create via JavaScript to avoid dropdown/focus issues
-        await this.page.evaluate(() => {
+        const createClicked = await this.page.evaluate(() => {
             const buttons = document.querySelectorAll('button');
             for (const btn of buttons) {
                 if (btn.innerText?.trim().toLowerCase() === 'create' && !btn.disabled) {
@@ -406,50 +384,23 @@ export class BudgetingPage {
             }
             return false;
         });
+        if (!createClicked) throw new Error(`Create button was not enabled for budget entry "${title}"`);
 
-        await this.page.waitForTimeout(1000);
         await this.page.screenshot({ path: 'debug-after-create.png' });
-
-        await this.page.waitForTimeout(500);
 
         const successToast = this.page.locator('div.toast-success')
             .filter({ hasText: /created successfully/i })
             .first();
-
-        let created = false;
-        try {
-            await successToast.waitFor({ state: 'visible', timeout: 10000 });
-            created = true;
-            console.log('✅ Budget entry created successfully (toast confirmed)');
-        } catch (error) {
-            console.log('⚠️ Success toast not found, falling back to form close / row check');
-            await this.page.screenshot({ path: 'debug-create-no-toast.png' });
-            const formClosed = await this.page.getByPlaceholder('Title')
-                .waitFor({ state: 'hidden', timeout: 10000 })
-                .then(() => true)
-                .catch(() => false);
-            if (formClosed) {
-                created = true;
-                console.log('✅ Budget entry created successfully (form closed)');
-            }
-        }
-
-        if (!created) {
-            const titleRow = this.page.locator('tr').filter({ hasText: title }).first();
-            if (await titleRow.isVisible({ timeout: 10000 }).catch(() => false)) {
-                created = true;
-                console.log('✅ Budget entry created successfully (entry visible in list)');
-            }
-        }
-
-        if (!created) {
-            throw new Error('Budget entry creation failed: no success toast, form did not close, and entry row was not visible');
-        }
+        const createdTitleRow = this.page.locator('tr').filter({ hasText: title }).first();
+        await expect.poll(async () =>
+            await successToast.isVisible()
+            || !(await titleInput.isVisible())
+            || await createdTitleRow.isVisible(),
+        { timeout: 15000 }).toBe(true);
 
         // Reload page
         await this.page.reload({ waitUntil: 'domcontentloaded' });
-        await this.page.locator('text=Loading Information')
-            .waitFor({ state: 'hidden', timeout: 20000 });
+        await this.waitForLoadingOverlay(20000);
 
         // Dismiss notifications popup if visible
         const notifClose = this.page.locator('button').filter({ hasText: /close/i })
@@ -479,7 +430,6 @@ export class BudgetingPage {
         const entriesContainer = createRow.locator(
             'xpath=ancestor::div[contains(@class, "ew-data-table")][1]',
         );
-        await this.page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
         await entriesContainer.getByText('Loading...', { exact: true })
             .waitFor({ state: 'hidden', timeout: 30000 });
 
@@ -487,9 +437,9 @@ export class BudgetingPage {
         const perPageSelect = this.page.locator('select')
             .filter({ has: this.page.locator('option[value="50"]') })
             .first();
-        if (await perPageSelect.isVisible().catch(() => false)) {
+        if (await perPageSelect.isVisible()) {
             await perPageSelect.selectOption('50');
-            await this.page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+            await this.waitForLoadingOverlay();
             await entriesContainer.getByText('Loading...', { exact: true })
                 .waitFor({ state: 'hidden', timeout: 30000 });
         }
@@ -502,12 +452,11 @@ export class BudgetingPage {
         for (let index = 0; index < Math.max(pageCount, 1); index += 1) {
             if (index > 0) {
                 await pageButtons.nth(index).click();
-                await this.page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
                 await entriesContainer.getByText('Loading...', { exact: true })
                     .waitFor({ state: 'hidden', timeout: 15000 });
             }
 
-            if (await titleRow.waitFor({ state: 'visible', timeout: 3000 }).then(() => true).catch(() => false)) {
+            if (await titleRow.isVisible()) {
                 found = true;
                 break;
             }
@@ -559,16 +508,7 @@ export class BudgetingPage {
         await btn.waitFor({ state: 'visible', timeout: 5000 });
         await btn.scrollIntoViewIfNeeded();
         await btn.click();
-
-        // Wait for success toast to confirm action was processed
-        await this.page.locator('div.toast-success')
-            .waitFor({ state: 'visible', timeout: 10000 })
-            .catch(() => { }); // don't fail if toast doesn't appear
-
-        await this.page.waitForLoadState('domcontentloaded');
-
-        // Small wait for list to re-render
-        await this.page.waitForTimeout(1000);
+        await expect(btn).toBeHidden({ timeout: 15000 });
     }
 
 
@@ -743,26 +683,19 @@ export class BudgetingPage {
         const poDrawer = this.page.locator('.modal-shell').first();
 
         // Wait for loading overlay inside drawer to disappear
-        await poDrawer.locator('.tw-cursor-wait')
-            .waitFor({ state: 'hidden', timeout: 15000 })
-            .catch(() => { });
+        await expect(poDrawer.locator('.tw-cursor-wait')).toBeHidden({ timeout: 15000 });
 
-        await this.page.waitForTimeout(1000);
-
-        // Check if Request Approval button exists
+        // A PO already in the approval queue has no Request Approval button.
         const requestApprovalBtn = poDrawer.getByRole('button', { name: /Request Approval/i });
-        const hasRequestApproval = await requestApprovalBtn.isVisible().catch(() => false);
+        const hasRequestApproval = await requestApprovalBtn.isVisible();
 
         if (hasRequestApproval) {
             await expect(requestApprovalBtn).toBeEnabled({ timeout: 10000 });
             await requestApprovalBtn.click();
 
             // Wait for overlay to clear after click
-            await poDrawer.locator('.tw-cursor-wait')
-                .waitFor({ state: 'hidden', timeout: 15000 })
-                .catch(() => { });
-
-            await this.page.waitForTimeout(500);
+            await expect(poDrawer.locator('.tw-cursor-wait')).toBeHidden({ timeout: 15000 });
+            await expect(requestApprovalBtn).toBeHidden({ timeout: 15000 });
             console.log('✅ PO approval requested');
         }
 
@@ -772,11 +705,8 @@ export class BudgetingPage {
         await expect(approveBtn).toBeEnabled({ timeout: 15000 });
         await approveBtn.click();
 
-        await poDrawer.locator('.tw-cursor-wait')
-            .waitFor({ state: 'hidden', timeout: 15000 })
-            .catch(() => { });
-
-        await this.page.waitForLoadState('domcontentloaded');
+        await expect(poDrawer.locator('.tw-cursor-wait')).toBeHidden({ timeout: 15000 });
+        await expect(approveBtn).toBeHidden({ timeout: 15000 });
     }
 
 
@@ -796,8 +726,6 @@ export class BudgetingPage {
         const tab = poDrawer.locator('a, button').filter({ hasText: new RegExp(`^${tabName}$`, 'i') }).first();
         await tab.waitFor({ state: 'visible', timeout: 10000 });
         await tab.click();
-        await this.page.waitForLoadState('domcontentloaded');
-        await this.page.waitForTimeout(500);
     }
 
     async raiseInvoice({ title, invoiceNumber }) {
@@ -832,23 +760,19 @@ export class BudgetingPage {
 
         // Click Raise Invoice to confirm
         await this.page.getByRole('button', { name: /^raise invoice$/i }).last().click();
-        await this.page.waitForTimeout(1000);
 
         // Dismiss validation error dialog if invoice number was missing
         const errorOk = this.page.getByRole('button', { name: /^ok$/i });
-        if (await errorOk.isVisible().catch(() => false)) {
+        const invoicePaymentsSave = this.page.getByRole('button', { name: /save changes/i });
+        await expect(errorOk.or(invoicePaymentsSave)).toBeVisible({ timeout: 15000 });
+        if (await errorOk.isVisible()) {
             await errorOk.click();
             throw new Error('Raise Invoice failed: invoice number field was required but empty');
         }
 
         // Save the "Invoice Payments" dialog that opens automatically after raising
-        const invoicePaymentsSave = this.page.getByRole('button', { name: /save changes/i });
-        if (await invoicePaymentsSave.isVisible().catch(() => false)) {
-            await invoicePaymentsSave.click();
-            await this.page.waitForLoadState('domcontentloaded');
-        }
-
-        await this.page.waitForLoadState('domcontentloaded');
+        await invoicePaymentsSave.click();
+        await expect(invoicePaymentsSave).toBeHidden({ timeout: 15000 });
     }
 
     async verifyInvoiceRaised(invoiceTitle) {
@@ -866,8 +790,7 @@ export class BudgetingPage {
         await this.expandAllSections();
         await this.openDepartmentBudgetEntries(deptIndex);
         const row = this.page.locator('tr.tw-cursor-pointer').filter({ hasText: entryTitle }).first();
-        // (isVisible() ignores its timeout option, so wait for the row explicitly.)
-        if (!await row.waitFor({ state: 'visible', timeout: 8000 }).then(() => true, () => false)) return false;
+        if (!await row.isVisible()) return false;
         await this.openEntryPopup(entryTitle);
         return true;
     }
@@ -891,7 +814,8 @@ export class BudgetingPage {
         await dialog.waitFor({ state: 'visible', timeout: 10000 });
         const confirm = dialog.getByRole('button', { name: /^(Delete|Void in Xero & Delete)$/ });
         const check = dialog.getByRole('button', { name: 'Check Invoice', exact: true });
-        if (await check.isVisible().catch(() => false)) {
+        // Xero-pushed invoices require a Check Invoice step; ordinary invoices do not.
+        if (await check.isVisible()) {
             await check.click();
             await expect(confirm, `Invoice could not be deleted: ${(await dialog.innerText()).replace(/\s+/g, ' ')}`)
                 .toBeVisible({ timeout: 15000 });
@@ -913,22 +837,25 @@ export class BudgetingPage {
                 if (!await this.openCostEntryByTitle(entryTitle, { deptIndex })) return pass > 0;
                 const drawer = this.getDrawer();
                 await this.openTabInPopup('Purchase Orders');
-                await this.page.waitForTimeout(1000);
+                await expect(drawer.locator('table').first()).toBeVisible({ timeout: 10000 });
 
                 if (await drawer.locator('tr').filter({ hasText: entryTitle }).count()) {
                     await this.openPOFromPopup(entryTitle);
                     const po = this.page.locator('.modal-shell').first();
                     await this.openTabInPO('Invoices');
+                    await expect(po.locator('table').first()).toBeVisible({ timeout: 10000 });
 
                     const invoiceEye = po.locator('tr').locator('button').filter({ has: this.page.locator('i.mdi-eye') }).first();
-                    if (await invoiceEye.waitFor({ state: 'visible', timeout: 3000 }).then(() => true, () => false)) {
+                    // The eye action is absent when the PO has no supplier invoices.
+                    if (await invoiceEye.isVisible()) {
                         await invoiceEye.click();
                         await this.deleteOpenSupplierInvoice();
                         continue;
                     }
 
                     const reset = po.getByRole('button', { name: /Reset To Draft/i });
-                    if (await reset.isVisible().catch(() => false)) {
+                    // Reset To Draft is only available after the PO leaves Draft.
+                    if (await reset.isVisible()) {
                         await reset.click();
                         const resetDialog = this.page.getByText('Add Reset Comments', { exact: true })
                             .locator('xpath=ancestor::div[.//button[normalize-space(.)="Submit"]][1]');
@@ -969,12 +896,7 @@ export class BudgetingPage {
             timeout: 60000
         });
 
-        await Promise.all([
-            this.page.locator('text=Loading Information').waitFor({ state: 'hidden', timeout: 30000 }).catch(() => {}),
-            this.page.locator('text=Loading...').waitFor({ state: 'hidden', timeout: 30000 }).catch(() => {}),
-        ]);
-
-        await this.page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+        await this.waitForLoadingOverlay();
 
         // "page-title" class dropped from headings — match on the h4 tag alone (see gotoBudgetSummaryPage)
         await expect(this.page.locator('h4').filter({ hasText: /Revenue Budget/i }))
@@ -984,7 +906,7 @@ export class BudgetingPage {
     async findAvailableRevenueStream(streams = ['Sponsorship', 'Merchandise']) {
         for (const stream of streams) {
             const row = this.page.locator('tr.tw-cursor-pointer').filter({ hasText: stream }).first();
-            if (await row.isVisible().catch(() => false)) {
+            if (await row.isVisible()) {
                 console.log(`📊 Found revenue stream: ${stream}`);
                 return stream;
             }
@@ -1020,43 +942,33 @@ export class BudgetingPage {
 
         const titleInput = this.page.getByPlaceholder('Title');
         await titleInput.fill(title);
-        await this.page.waitForTimeout(300);
 
         if (!subcategory) {
             throw new Error(`Revenue subcategory is required to create budget entry "${title}"`);
         }
 
         await titleInput.press('Tab');
-        await this.page.waitForTimeout(300);
         await this.page.keyboard.type(subcategory, { delay: 40 });
-        await this.page.waitForTimeout(600);
+        await expect(this.page.locator('.v-popper__popper--shown').last()).toBeVisible({ timeout: 10000 });
         await this.page.keyboard.press('ArrowDown');
         await this.page.keyboard.press('Enter');
-        await this.page.waitForTimeout(500);
 
         await this.page.keyboard.press('Tab');
-        await this.page.waitForTimeout(300);
         await this.page.keyboard.type(supplier, { delay: 40 });
-        await this.page.waitForTimeout(700);
+        await expect(this.page.locator('.v-popper__popper--shown').last()).toBeVisible({ timeout: 10000 });
         await this.page.keyboard.press('ArrowDown');
         await this.page.keyboard.press('Enter');
-        await this.page.waitForTimeout(500);
 
         await this.page.keyboard.press('Tab');
-        await this.page.waitForTimeout(200);
         await this.page.keyboard.press('Control+a');
         await this.page.keyboard.type(fixedCost.toString());
-        await this.page.waitForTimeout(200);
 
         await this.page.keyboard.press('Tab');
-        await this.page.waitForTimeout(200);
         await this.page.keyboard.press('Control+a');
         await this.page.keyboard.type(budgetedCost.toString());
-        await this.page.waitForTimeout(300);
         await this.page.keyboard.press('Tab');
-        await this.page.waitForTimeout(300);
 
-        await this.page.evaluate(() => {
+        const createClicked = await this.page.evaluate(() => {
             const buttons = document.querySelectorAll('button');
             for (const btn of buttons) {
                 if (btn.innerText?.trim().toLowerCase() === 'create' && !btn.disabled) {
@@ -1066,30 +978,21 @@ export class BudgetingPage {
             }
             return false;
         });
-
-        await this.page.waitForTimeout(1000);
+        if (!createClicked) throw new Error(`Create button was not enabled for revenue entry "${title}"`);
 
         const successToast = this.page.locator('div.toast-success')
             .filter({ hasText: /created successfully/i })
             .first();
-
-        try {
-            await successToast.waitFor({ state: 'visible', timeout: 10000 });
-            console.log(`✅ Revenue budget entry created: ${title}`);
-        } catch {
-            const formClosed = await this.page.getByPlaceholder('Title')
-                .waitFor({ state: 'hidden', timeout: 10000 })
-                .then(() => true)
-                .catch(() => false);
-            if (!formClosed) {
-                throw new Error(`Revenue budget entry creation failed — no toast and form did not close: ${title}`);
-            }
-            console.log(`✅ Revenue budget entry created (form closed): ${title}`);
-        }
+        const titleRow = this.page.locator('tr').filter({ hasText: title }).first();
+        await expect.poll(async () =>
+            await successToast.isVisible()
+            || !(await titleInput.isVisible())
+            || await titleRow.isVisible(),
+        { timeout: 15000 }).toBe(true);
 
         // Reload and re-open the stream so the entry row is visible
         await this.page.reload({ waitUntil: 'domcontentloaded' });
-        await this.page.locator('text=Loading Information').waitFor({ state: 'hidden', timeout: 20000 }).catch(() => {});
+        await this.waitForLoadingOverlay(20000);
         await this.expandAllSections();
         if (streamName) await this.openRevenueStreamBudgetEntries(streamName);
     }
@@ -1150,17 +1053,15 @@ export class BudgetingPage {
 
         await newRow.locator('td').nth(1).locator('[contenteditable="true"]').click();
         await this.page.locator('.v-popper__popper--shown').last().getByText(category, { exact: true }).click();
-        await this.page.waitForTimeout(500);
 
         await newRow.locator('td').nth(2).locator('[contenteditable="true"]').click();
         await this.page.keyboard.type(customer, { delay: 40 });
-        await this.page.waitForTimeout(1000);
-        await this.page.locator('.v-popper__popper--shown').last().getByText(customer, { exact: true }).first().click();
-        await this.page.waitForTimeout(500);
+        const customerOption = this.page.locator('.v-popper__popper--shown').last().getByText(customer, { exact: true }).first();
+        await expect(customerOption).toBeVisible({ timeout: 10000 });
+        await customerOption.click();
 
         await newRow.locator('td').nth(4).locator('button').click();
         await this.page.locator('.v-popper__popper--shown').last().getByText(taxRate, { exact: true }).click();
-        await this.page.waitForTimeout(500);
 
         const grossInput = newRow.locator('input[type="number"]');
         await grossInput.fill(String(grossAmount));
@@ -1170,7 +1071,6 @@ export class BudgetingPage {
         await expect(createBtn).toBeEnabled({ timeout: 5000 });
         await createBtn.click();
         await this.pricePerHeadEntryRow(name).waitFor({ state: 'visible', timeout: 10000 });
-        await this.page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
         console.log(`✅ Price per head entry created: ${name}`);
     }
 
@@ -1182,7 +1082,8 @@ export class BudgetingPage {
             const before = await rows().count();
             await rows().first().locator('button').filter({ has: this.page.locator('i[class*="mdi-delete"], i[class*="mdi-trash"]') }).first().click();
             const confirm = this.page.getByRole('button', { name: /^(Yes, I'm sure|Yes|Delete|Confirm|OK)$/i }).last();
-            if (await confirm.isVisible({ timeout: 3000 }).catch(() => false)) await confirm.click();
+            // Some pages delete immediately; confirm only when the application presents a prompt.
+            if (await confirm.isVisible()) await confirm.click();
             await expect(rows()).toHaveCount(before - 1, { timeout: 10000 });
             console.log(`🗑️ Price per head entry deleted: ${name}`);
         }
@@ -1255,18 +1156,16 @@ export class BudgetingPage {
 
         await modal.getByRole('button', { name: 'Save', exact: true }).click();
         const forbidden = this.page.getByText('You are unable to perform this action as the event is closed');
-        await Promise.race([
-            modal.waitFor({ state: 'hidden', timeout: 10000 }),
-            forbidden.waitFor({ state: 'visible', timeout: 10000 }),
-        ]);
-        if (await forbidden.isVisible().catch(() => false)) {
+        await expect.poll(async () => !(await modal.isVisible()) || await forbidden.isVisible(), { timeout: 15000 })
+            .toBe(true);
+        if (await forbidden.isVisible()) {
             throw new Error('Price per head settings not saved — the event is closed (Forbidden). Point BUDGET_EVENT_URL at an open event.');
         }
 
         const saveRow = row.locator('button').filter({ has: this.page.locator('i.mdi-check') });
-        if (await saveRow.isVisible().catch(() => false)) await saveRow.click();
-        await this.page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
-        await this.page.waitForTimeout(1000);
+        await expect(saveRow).toBeVisible({ timeout: 10000 });
+        await saveRow.click();
+        await expect(saveRow).toBeHidden({ timeout: 15000 });
         console.log(`✅ Price per head set — tickets: [${ticketTypes.join(', ') || 'all'}], attrition: ${attritionRate}%`);
     }
 
@@ -1279,7 +1178,6 @@ export class BudgetingPage {
             .first();
         await row.waitFor({ state: 'visible', timeout: 10000 });
         await row.locator('button').filter({ has: this.page.locator('i.mdi-arrow-right') }).first().click();
-        await this.page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 
         // "Expand all" can be clicked before the subcategory rows have rendered,
         // in which case nothing expands — retry until the ticket tables show.
@@ -1291,7 +1189,7 @@ export class BudgetingPage {
             }
             await expect(tables.first()).toBeVisible({ timeout: 3000 });
         }).toPass({ timeout: 20000 });
-        await this.page.waitForTimeout(1500);
+        await expect(tables.first().locator('tbody tr').first()).toBeVisible({ timeout: 15000 });
 
         // Columns: [spacer, Ticket Name, Fixed, Price, Available, then Net/Gross × 3].
         // The outer subcategory tables also match the filter (they contain these
