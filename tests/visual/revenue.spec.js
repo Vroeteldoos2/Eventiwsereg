@@ -1,5 +1,5 @@
 // tests/visual/revenue.spec.js
-import { runVisualPages, selectDepartmentTab } from './visualHelpers.js';
+import { expect, runVisualPages, selectDepartmentTab } from './visualHelpers.js';
 
 // ── Revenue Budget drill-down helpers ───────────────────────────────────────
 // Reusable across any revenue stream, not just "Bar" — pass a different
@@ -15,16 +15,22 @@ async function gotoRevenueBudget({ page, budgetingPage }) {
 async function enterRevenueStream(page, streamName) {
     const row = page.locator('tr.tw-cursor-pointer').filter({ hasText: streamName }).first();
     await row.waitFor({ state: 'visible', timeout: 10000 });
+    const previousUrl = page.url();
     await row.locator('button').filter({ has: page.locator('i.mdi-arrow-right') }).first().click();
-    await page.waitForLoadState('networkidle');
+    await expect(page).not.toHaveURL(previousUrl, { timeout: 15000 });
+    await expect(page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 30000 });
+    await expect(page.locator('table tbody tr').first()).toBeVisible({ timeout: 30000 });
 }
 
 // From a stream's subcategories page, clicks the arrow (→) next to a named
 // subcategory row to enter its Revenue Per Head Entries page.
 async function enterSubcategory(page, subcategoryName) {
     const row = page.locator('tr').filter({ hasText: subcategoryName }).first();
+    const previousUrl = page.url();
     await row.locator('button').filter({ has: page.locator('i.mdi-arrow-right') }).first().click();
-    await page.waitForLoadState('networkidle');
+    await expect(page).not.toHaveURL(previousUrl, { timeout: 15000 });
+    await expect(page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 30000 });
+    await expect(page.locator('table tbody tr').first()).toBeVisible({ timeout: 30000 });
 }
 
 // On the main Revenue Streams list, clicking the row itself (not its arrow)
@@ -34,7 +40,7 @@ async function expandRevenueStreamPanel(page, streamName) {
     const row = page.locator('tr.tw-cursor-pointer').filter({ hasText: streamName }).first();
     await row.waitFor({ state: 'visible', timeout: 10000 });
     await row.click();
-    await page.waitForTimeout(800);
+    await expect(page.locator('tr.expanded-row').first()).toBeVisible({ timeout: 10000 });
 }
 
 const pages = [
