@@ -14,9 +14,9 @@ function invoiceNumber(row) {
 test.describe('Account Sales Invoices', () => {
     test.beforeEach(async ({ page }) => {
         await page.goto(SALES_INVOICES_URL);
-        await page.waitForLoadState('networkidle');
         await expect(page.getByRole('heading', { name: 'Sales Invoices', exact: true }))
             .toBeVisible();
+        await expect(invoiceRows(page).first()).toBeVisible({ timeout: 20000 });
     });
 
     test('shows invoice totals, status tabs, and the invoice table @smoke', async ({ page }) => {
