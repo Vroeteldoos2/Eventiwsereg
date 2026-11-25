@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
 
-import { TestHelpers } from '../tests/utils/test-helpers';
+import { TestHelpers } from '../tests/utils/test-helpers.js';
 
 export class BudgetingPage {
 
