@@ -19,15 +19,17 @@ export class TeamMembersPage {
         await this.emailAddress.fill(email);
         await this.password.fill(password);
         await this.loginButton.click();
-        await this.page.waitForLoadState('networkidle');
+        await expect(this.page.getByRole('button', { name: regressionAccountName })).toBeVisible({ timeout: 30000 });
     }
 
     async gotoOnboardingPage() {
         if (!this.page.url().includes('/onboarding')) {
             await this.page.goto(`${BASE_URL}/onboarding`);
         }
-        await this.page.waitForLoadState('networkidle');
-        await this.page.getByRole('button', { name: regressionAccountName }).click();
+        const accountButton = this.page.getByRole('button', { name: regressionAccountName });
+        await expect(accountButton).toBeVisible({ timeout: 30000 });
+        await accountButton.click();
+        await this.page.getByRole('textbox', { name: 'Search for an event...' }).waitFor({ state: 'visible', timeout: 10000 });
         await this.page.waitForLoadState('domcontentloaded');
     }
 
@@ -35,23 +37,24 @@ export class TeamMembersPage {
 
     async gotoAccountDash() {
         await this.page.goto(regressionAccountUrl);
-        await this.page.waitForLoadState('networkidle');
+        await expect(this.page.getByText('All Events', { exact: true }).first()).toBeVisible({ timeout: 30000 });
         console.log('Account dashboard loaded ✓');
     }
 
     async clickTeamMenu() {
         const teamMembersLink = this.page.locator('a[href$="/team"]');
-        const isVisible = await teamMembersLink.isVisible().catch(() => false);
+        const isVisible = await teamMembersLink.isVisible();
         if (!isVisible) {
             await this.page.locator('a, li').filter({ has: this.page.locator('span', { hasText: /^Team$/ }) }).first().click();
-            await this.page.waitForTimeout(1000);
         }
+        await expect(teamMembersLink).toBeVisible({ timeout: 10000 });
         console.log('Team menu expanded ✓');
     }
 
     async selectTeamMembers() {
         await this.page.goto(`${regressionAccountUrl}/team`);
-        await this.page.waitForLoadState('networkidle');
+        await expect(this.page.getByRole('textbox', { name: /search/i }).or(this.page.locator('input[placeholder*="Search"], input[placeholder*="search"]')).first())
+            .toBeVisible({ timeout: 20000 });
         console.log('Team Members page loaded ✓');
     }
 
@@ -62,18 +65,15 @@ export class TeamMembersPage {
             .or(this.page.locator('input[placeholder*="Search"], input[placeholder*="search"]'))
             .first();
         await searchInput.fill(term);
-        await this.page.waitForTimeout(800);
         console.log(`Searched for "${term}" ✓`);
     }
 
     async verifySearchResults(term) {
-        // Wait for results to settle
-        await this.page.waitForTimeout(500);
-
         // Results could be table rows or card-style elements
         const rows = this.page.locator('tbody tr')
             .or(this.page.locator('[class*="member-row"], [class*="team-member"], [class*="user-row"]'));
 
+        await expect(rows.first()).toBeVisible({ timeout: 15000 });
         const count = await rows.count();
         expect(count).toBeGreaterThan(0);
 
@@ -102,7 +102,7 @@ export class TeamMembersPage {
 
     async sendInvite() {
         await this.page.getByRole('button', { name: /send invite/i }).click();
-        await this.page.waitForLoadState('networkidle');
+        await expect(this.page.locator('div.toast-success').first()).toBeVisible({ timeout: 15000 });
         console.log('Invite sent ✓');
     }
 
@@ -113,9 +113,8 @@ export class TeamMembersPage {
         // "Directs" already has access to all events & subcategories — skip it.
         // For every other section, check all available checkboxes.
 
-        await this.page.waitForLoadState('networkidle');
-
         const sections = this.page.locator('[class*="category"], [class*="section"], [class*="event-group"]');
+        await expect(sections.first()).toBeVisible({ timeout: 20000 });
         const count = await sections.count();
 
         for (let i = 0; i < count; i++) {
@@ -139,9 +138,9 @@ export class TeamMembersPage {
         }
 
         const saveBtn = this.page.getByRole('button', { name: /save|confirm|done/i }).first();
-        if (await saveBtn.isVisible().catch(() => false)) {
+        if (await saveBtn.isVisible()) {
             await saveBtn.click();
-            await this.page.waitForLoadState('networkidle');
+            await expect(this.page.locator('div.toast-success').first()).toBeVisible({ timeout: 15000 });
             console.log('Permissions saved ✓');
         }
     }
