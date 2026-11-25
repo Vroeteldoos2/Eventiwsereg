@@ -1,18 +1,31 @@
-import { test, expect }       from '@playwright/test';
-import { setupBudgetingTest } from '../utils/setup';
+import { test, expect } from '../../fixtures/baseTest.js';
+import { setupBudgetingTest } from '../utils/setup.js';
 
 const QA_EMAIL = process.env.QA_EMAIL?.trim() || '';
 
 let loginPage, budgetingPage;
+let createdEntryTitles = [];
+
+function trackEntryTitle(title) {
+    if (!title.startsWith('AutoTest-PO-')) throw new Error(`Unexpected cleanup title: ${title}`);
+    createdEntryTitles.push(title);
+}
 
 test.describe('Purchase Order', () => {
 
     test.beforeEach(async ({ page }) => {
         test.setTimeout(180000);
+        createdEntryTitles = [];
         ({ loginPage, budgetingPage } = await setupBudgetingTest(page));
         await budgetingPage.gotoBudgetSummaryPage();
         await budgetingPage.selectBudgetVersion('A');
         await budgetingPage.expandAllSections();
+    });
+
+    test.afterEach(async () => {
+        for (const title of [...new Set(createdEntryTitles)].reverse()) {
+            await budgetingPage.deleteEntryWithPurchaseOrder(title);
+        }
     });
 
     async function createDraftBudgetEntry(budgetingPage, page) {
@@ -27,6 +40,7 @@ test.describe('Purchase Order', () => {
 
         // Create a fresh draft entry
         const entryTitle = `AutoTest-PO-${Date.now()}`;
+        trackEntryTitle(entryTitle);
         await budgetingPage.createBudgetEntry({
             title: entryTitle,
             subcategory: process.env.BUDGET_SUBCATEGORY || await cellText(3),
@@ -136,8 +150,14 @@ test.describe('Purchase Order', () => {
         await budgetingPage.approvePO();
 
         // ── Click Download PDF and verify download starts ─────────────────
-        const downloadPromise = page.waitForEvent('download', { timeout: 10000 }).catch(() => null);
-        const popupPromise = page.waitForEvent('popup', { timeout: 10000 }).catch(() => null);
+        // The app may download the PDF or open it in a new tab; both outcomes are supported.
+        // Either event is optional; the assertion below verifies that one of them actually occurred.
+        const optionalEvent = promise => promise.catch(error => {
+            if (error.name === 'TimeoutError') return null;
+            throw error;
+        });
+        const downloadPromise = optionalEvent(page.waitForEvent('download', { timeout: 10000 }));
+        const popupPromise = optionalEvent(page.waitForEvent('popup', { timeout: 10000 }));
         await poDrawer.getByRole('button', { name: /Download/i }).click();
         const [download, pdfPage] = await Promise.all([downloadPromise, popupPromise]);
 
