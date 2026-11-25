@@ -59,7 +59,7 @@ async function pagerLastPage(page) {
 test.describe('Account Entries & Data', () => {
     test.beforeEach(async () => { test.setTimeout(120000); });
 
-    test('the Entries & Data tabs switch between the four pages', async ({ page }) => {
+    test('the Entries & Data tabs switch between the four pages @smoke', async ({ page }) => {
         await open(page, 'budget-entries', 'Budget Entries');
         for (const [tab, path] of [['Purchase Orders', 'purchase-orders'], ['Payruns', 'payruns'], ['Sales Invoices', 'sales-invoices'], ['Budget Entries', 'budget-entries']]) {
             await page.getByRole('button', { name: tab, exact: true }).click();
@@ -74,7 +74,7 @@ test.describe('Account Entries & Data', () => {
             await expect(rows(page).first()).toBeVisible({ timeout: 20000 });
         });
 
-        test('lists the budget entries of all events with their amounts and approval details', async ({ page }) => {
+        test('lists the budget entries of all events with their amounts and approval details @smoke', async ({ page }) => {
             await expect(page.getByPlaceholder('Search budget entries...')).toBeVisible();
             await expect(page.getByRole('button', { name: /All Statuses/ })).toBeVisible();
             await expect(page.getByRole('button', { name: /Filters/ })).toBeVisible();
@@ -84,6 +84,16 @@ test.describe('Account Entries & Data', () => {
             const first = rows(page).first();
             expect(money(await cell(first, 6)), 'Fixed amount').not.toBeNaN();
             expect(money(await cell(first, 7)), 'Budgeted amount').not.toBeNaN();
+        });
+
+        test('account Budget Entries offer request, approve and reject actions', async ({ page }) => {
+            test.fail(true, 'Known bug: Request, Approve and Reject actions are missing from account Entries pages - ClickUp: TODO');
+            const draft = rows(page).filter({ hasText: /\bDraft\b/ }).first();
+            await expect(draft).toBeVisible();
+            await draft.locator('input[type="checkbox"]').check({ force: true });
+            for (const action of ['Request Approval', 'Approve', 'Reject']) {
+                await expect(page.getByRole('button', { name: new RegExp(action, 'i') }).first()).toBeVisible();
+            }
         });
 
         test('search finds an entry by its title', async ({ page }) => {

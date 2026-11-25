@@ -23,7 +23,7 @@
     "test:budgetVActuals": "playwright test tests/budgetVActuals/",
     "test:budgeting": "playwright test tests/budgeting/",
     "test:fullRegression": "node scripts/fullRegression.js",
-    "test:smoke": "npm run test:accountDashboardTests && npm run test:eventDashboard && npm run test:budgetingTotals && npm run test:ticketing",
+    "test:smoke": "playwright test --grep @smoke",
     "test:daily": "npm run test:smoke && npm run test:budgetEntry && npm run test:purchaseOrder && npm run test:invoice",
     "test:ticketing": "playwright test tests/ticketing/",
     "test:ticketing:dashboard": "playwright test tests/ticketing/dashboard.spec.js",

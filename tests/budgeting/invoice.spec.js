@@ -534,6 +534,7 @@ test.describe('Purchase supplier invoices', () => {
     // Payments/Credits tab disappears. The first test below fails until that is fixed. A credit note
     // raised once the push has finished (second test) is kept.
     test('credit note on a Xero-linked supplier invoice is kept after the Xero sync', async ({ page }) => {
+        test.fail(true, 'Known bug: Xero sync drops a credit note raised while the sync is running - ClickUp: TODO');
         await creditNoteOnXeroInvoice(page, { raiseAfterSync: false });
     });
 

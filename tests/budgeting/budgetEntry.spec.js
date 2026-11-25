@@ -113,7 +113,7 @@ test.describe('Cost Budget Entry', () => {
         console.log(`\n✅ Full approval flow completed: ${entryTitle}`);
     });
 
-    test('View, edit, and delete a budget entry', async ({ page }) => {
+    test('View, edit, and delete a budget entry @smoke', async ({ page }) => {
         const title = `AutoTest-EditDelete-${Date.now()}`;
         await createDraftCostEntry(page, budgetingPage, title);
 

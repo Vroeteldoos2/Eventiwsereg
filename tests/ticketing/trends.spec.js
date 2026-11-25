@@ -155,6 +155,8 @@ test.describe('Ticketing Trends', () => {
     });
 
     test('create a sales target with +: shows in the table and graph, can be edited and deleted', async ({ page }) => {
+        test.fail(true, 'Known bug: custom sales targets show NaN in weekly Detailed View - ClickUp: TODO');
+        test.fail(true, 'Known bug: ticking a custom target does not show it on the graph - ClickUp: TODO');
         const name = `${TARGET_PREFIX}${Date.now().toString().slice(-6)}`;
         const renamed = `${name}_edited`;
         const graph = page.locator('canvas').first();
@@ -201,6 +203,7 @@ test.describe('Ticketing Trends', () => {
     // The wizard says the value entered in step 1 is the target's total ("…cannot exceed your maximum
     // available tickets"), but on most events step 2 shows the number already sold instead.
     test('Create Ticket Target wizard uses the quantity entered', async () => {
+        test.fail(true, 'Known bug: Ticket Target wizard ignores the entered quantity on most events - ClickUp: TODO');
         const modal = await trends.openCreateTargetWizard();
         const quantityInput = modal.locator('input[type="number"]');
         const max = Number(await quantityInput.getAttribute('max'));
@@ -236,6 +239,7 @@ test.describe('Ticketing Trends', () => {
     });
 
     test('Breakeven amount = total budgeted costs − budgeted non-ticket revenue; weekly count is zero once passed', async ({ budgetingPage }) => {
+        test.fail(true, 'Known bug: breakeven target amount is incorrect on some events - ClickUp: TODO');
         budgetingPage.eventBaseUrl = eventBaseUrl();
         await budgetingPage.gotoBudgetSummaryPage();
         await budgetingPage.selectBudgetVersion('A');

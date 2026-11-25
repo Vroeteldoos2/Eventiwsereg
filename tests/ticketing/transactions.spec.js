@@ -89,6 +89,7 @@ test.describe('Ticketing Transactions', () => {
     // The "Reverse" button of the Reverse Transaction dialog does nothing when pressed: no request, no message,
     // and the dialog stays open.
     test('reversing a transaction updates the numbers on the Tickets page and the Dashboard', async ({ page }) => {
+        test.fail(true, 'Known bug: Reverse Transaction does nothing - ClickUp: TODO');
         test.setTimeout(300000);
         await importTemplate();
         const before = await soldByTicket();
@@ -159,6 +160,7 @@ test.describe('Ticketing Transactions', () => {
     // The Ticket Seller list in the drawer says "There are no options available to select" for every ticket (even a
     // brand-new one), so "Create Transaction" stays disabled and no transaction can be added.
     test('Add Ticket Transaction: choose the ticket seller, quantity and date, then create the transaction', async ({ page }) => {
+        test.fail(true, 'Known bug: Ticket Seller list is empty in Add Ticket Transaction - ClickUp: TODO');
         await tickets.goto();
         await tickets.expandAll();
         const [channel] = await tickets.readSalesChannels();

@@ -19,7 +19,7 @@ test.describe('Account Sales Invoices', () => {
             .toBeVisible();
     });
 
-    test('shows invoice totals, status tabs, and the invoice table', async ({ page }) => {
+    test('shows invoice totals, status tabs, and the invoice table @smoke', async ({ page }) => {
         await expect(page.getByText('Total Outstanding', { exact: true })).toBeVisible();
         await expect(page.getByText('Overdue', { exact: true }).first()).toBeVisible();
         await expect(page.getByText('Invoiced This Month', { exact: true })).toBeVisible();

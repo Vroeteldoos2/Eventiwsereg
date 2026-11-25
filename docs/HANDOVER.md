@@ -60,6 +60,7 @@ npm run test:fullRegression -- --event=<event url>    # run against a different 
 npm run test:budgeting                                # one module (see package.json for all of them)
 npx playwright test tests/kpi/kpi.spec.js             # one spec file
 npm run test:headed                                    # run the default suite with a visible browser
+npm run test:smoke                                      # run tests tagged @smoke
 npm run test:visual                                     # run the visual regression project
 npm run report                                        # open the last HTML report
 ```
@@ -167,6 +168,11 @@ Each row is a stage in the full regression (`--only=<stage>`), its spec location
 cost and revenue budgets, ticketing dashboard and revenue dashboard). Run them with `npm run test:visual`.
 Baseline images are in the `*-snapshots` folders next to each spec. After an intended UI change, update them with
 `npx playwright test --config=playwright.visual.config.js --update-snapshots`.
+
+**Known issues:** tests for current application bugs are marked with `test.fail(true, ...)` and a temporary ClickUp
+placeholder. Remove that annotation once the bug is fixed and verified.
+
+**Smoke suite:** `npm run test:smoke` runs the fast core checks whose titles include `@smoke`.
 
 **Skipped tests:** a few tests are marked `test.skip` (for example some Event Dashboard shortcuts and some budget entry
 and revenue tests). They are known to need changes or are waiting on app fixes. Search for `test.skip` to list them.

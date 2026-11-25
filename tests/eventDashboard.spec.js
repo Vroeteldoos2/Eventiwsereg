@@ -10,6 +10,10 @@ test.describe('Event Dashboard Tests', () => {
 
     // ── Dashboard Verification ────────────────────────────────────────────────────
 
+    test('Event dashboard loads @smoke', async ({ dashboardPage }) => {
+        await dashboardPage.dashboardPageVerify();
+    });
+
     test.skip('Dashboard Verification', async ({ dashboardPage }) => {
         await dashboardPage.dashboardPageVerify();
     });
@@ -56,7 +60,7 @@ test.describe('Event Dashboard Tests', () => {
 
     // ── Toolbar Icons ─────────────────────────────────────────────────────────────
 
-    test('Search Function', async ({ page, dashboardPage }) => {
+    test('Search Function @smoke', async ({ page, dashboardPage }) => {
         await dashboardPage.clickSearchIcon();
         await dashboardPage.verifySearchResults('sg');
     });

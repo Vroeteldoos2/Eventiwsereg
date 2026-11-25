@@ -219,7 +219,7 @@ test.describe('Purchasing', () => {
 
     // ── PURCHASE ORDERS ──────────────────────────────────────────────────────────
 
-    test('New purchase order from a cost department: Draft, supplier / subcategory / budget entry, Request Approval and Delete', async ({ page }) => {
+    test('New purchase order from a cost department: Draft, supplier / subcategory / budget entry, Request Approval and Delete @smoke', async ({ page }) => {
         await purchasingPage.gotoPurchasingSummary();
         const [department] = await purchasingPage.readDepartments();
         const before = { tiles: await purchasingPage.readTiles(), department };
@@ -299,6 +299,7 @@ test.describe('Purchasing', () => {
     // ── PAYRUNS ──────────────────────────────────────────────────────────────────
 
     test('Payruns: create a payrun from the available payments, view it, request approval, reset to draft and approve', async ({ page }) => {
+        test.fail(true, 'Known bug: automation user cannot approve or reject payruns due to permissions - ClickUp: TODO');
         test.setTimeout(600000);
         await purchasingPage.gotoPayruns();
         // Payment dated tomorrow, so it is on the date strip and counts as the *next* payment run.

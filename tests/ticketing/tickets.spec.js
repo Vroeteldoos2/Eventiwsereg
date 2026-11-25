@@ -344,6 +344,7 @@ test.describe('Ticketing Tickets page', () => {
 
     // The delete button of a bank transaction ("Delete Transaction") does nothing when pressed: no request, no message.
     test('a bank transaction can be deleted from the list', async ({ page, budgetingPage, revenuePage }) => {
+        test.fail(true, 'Known bug: Delete Transaction does nothing for bank transactions - ClickUp: TODO');
         test.setTimeout(240000);
         await tickets.deleteTestTickets();
         const name = await tickets.createTestTicket(budgetingPage, revenuePage);
@@ -365,6 +366,7 @@ test.describe('Ticketing Tickets page', () => {
 
     // "Delete Ticket Sale" in a sales channel's menu does nothing when chosen: no request, no message.
     test('Delete Ticket Sale removes the selected ticket sale row', async ({ page, budgetingPage, revenuePage }) => {
+        test.fail(true, 'Known bug: Delete Ticket Sale does nothing - ClickUp: TODO');
         test.setTimeout(240000);
         await tickets.deleteTestTickets();
         const name = await tickets.createTestTicket(budgetingPage, revenuePage);

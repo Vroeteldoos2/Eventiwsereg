@@ -79,7 +79,7 @@ test.describe('Revenue - entries and customer invoices', () => {
         }
     });
 
-    test('Create a revenue entry: saved correctly and stream totals update', async ({ page, revenuePage, budgetingPage }) => {
+    test('Create a revenue entry: saved correctly and stream totals update @smoke', async ({ page, revenuePage, budgetingPage }) => {
         await revenuePage.gotoRevenueDashboard();
         const before = await streamFigures(budgetingPage);
         const title = newTitle();
@@ -167,6 +167,7 @@ test.describe('Revenue - entries and customer invoices', () => {
     });
 
     test('Invoice actions: download PDF, send by email, manage payment dates', async ({ revenuePage }) => {
+        test.fail(true, 'Known bug: customer invoice payment dates cannot be saved - ClickUp: TODO');
         const title = newTitle();
         await createEntry(revenuePage, title);
         await revenuePage.raiseInvoiceForEntry();

@@ -23,7 +23,7 @@ test.describe('Ticketing Dashboard', () => {
         await dashboard.goto();
     });
 
-    test('shows the four KPI tiles', async () => {
+    test('shows the four KPI tiles @smoke', async () => {
         const kpis = await dashboard.readKpis();
         expect(Object.keys(kpis)).toEqual(Object.keys(TILES));
         for (const [title, subtitle] of Object.entries(TILES)) {
@@ -62,7 +62,7 @@ test.describe('Ticketing Dashboard', () => {
         expect(summary.rows['Actual Sales'][1], 'Tickets Sold = Trends YTD actual sales').toBe(sold);
     });
 
-    test('Tickets Sold and Monthly Ticket Sales charts are shown', async ({ page }) => {
+    test('Tickets Sold and Monthly Ticket Sales charts are shown @smoke', async ({ page }) => {
         for (const title of ['Tickets Sold', 'Monthly Ticket Sales']) {
             const card = dashboard.chartCard(title);
             await expect(card.locator('canvas').first(), `${title} chart`).toBeVisible();

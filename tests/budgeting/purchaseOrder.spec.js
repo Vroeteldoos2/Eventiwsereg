@@ -75,7 +75,7 @@ test.describe('Purchase Order', () => {
         return { entryTitle, poTitle: poTitle.trim(), drawer };
     }
 
-    test('Create a PO from a budget entry Purchase Orders tab', async ({ page }) => {
+    test('Create a PO from a budget entry Purchase Orders tab @smoke', async ({ page }) => {
         const { drawer } = await createDraftBudgetEntry(budgetingPage, page);
         await budgetingPage.openTabInPopup('Purchase Orders');
 

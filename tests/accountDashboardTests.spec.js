@@ -59,6 +59,16 @@ test.describe('Account Dashboard Tests', () => {
         await page.waitForLoadState('networkidle');
     });
 
+    test('Account dashboard loads @smoke', async ({ page }) => {
+        await expect(page.getByText('All Events', { exact: true }).first()).toBeVisible();
+        await expect(page.getByPlaceholder('Search events...')).toBeVisible();
+    });
+
+    test('Resource Plan is available to the automation account', async ({ page }) => {
+        test.fail(true, 'Known bug: Resource Plan is hidden from the automation login - ClickUp: TODO');
+        await expect(page.getByRole('link', { name: /Resource Plan/i })).toBeVisible();
+    });
+
     // ── Invite a user ─────────────────────────────────────────────────────────────
     // Fields only — never calls sendInvite(). A real send requires a fresh inbox each
     // run (a new Gmail account), which isn't practical here; this just confirms the
