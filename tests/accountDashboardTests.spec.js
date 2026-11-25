@@ -16,7 +16,7 @@ function parseTableDate(cellText) {
 // Helper: click a stat card at the top of the account dashboard (highlights it and filters the table below)
 async function clickStatCard(page, label) {
     await page.getByText(label, { exact: true }).first().click();
-    await page.waitForTimeout(600);
+    await expect(rowLinks(page).first()).toBeVisible({ timeout: 10000 });
 }
 
 // The event list has no <table>/<tr> markup — each row is a div.tw-grid with 6 child
@@ -41,7 +41,6 @@ async function focusRegressionEvent(page) {
     const eventName = process.env.REGRESSION_EVENT_NAME;
     if (!eventName) return;
     await page.getByPlaceholder('Search events...').fill(eventName);
-    await page.waitForTimeout(800);
     await expect(rowCell(rowLinks(page).first(), 'name')).toContainText(eventName, { timeout: 10000 });
     console.log(`Filtered event list to regression event "${eventName}"`);
 }
@@ -56,7 +55,7 @@ test.describe('Account Dashboard Tests', () => {
 
     test.beforeEach(async ({ page }) => {
         await page.goto(ACCOUNT_DASH_URL);
-        await page.waitForLoadState('networkidle');
+        await expect(page.getByText('All Events', { exact: true }).first()).toBeVisible({ timeout: 30000 });
     });
 
     test('Account dashboard loads @smoke', async ({ page }) => {
@@ -126,8 +125,8 @@ test.describe('Account Dashboard Tests', () => {
 
     test('Team member page: user group, event access and subcategory access (nothing saved)', async ({ page }) => {
         await page.goto(`${ACCOUNT_DASH_URL}/team`, { waitUntil: 'domcontentloaded' });
-        await page.waitForLoadState('networkidle');
         const card = page.locator('div.tw-group').filter({ hasText: 'eweventuser@gmail.com' }).last();
+        await expect(card).toBeVisible({ timeout: 15000 });
         await expect(card).toContainText('Events');
         await expect(card).toContainText('Subcategories');
         const box = await card.boundingBox();
@@ -153,7 +152,6 @@ test.describe('Account Dashboard Tests', () => {
         await expect(page.getByRole('button', { name: 'Save changes' })).toBeEnabled();
 
         await page.goto(`${ACCOUNT_DASH_URL}/team`, { waitUntil: 'domcontentloaded' });
-        await page.waitForLoadState('networkidle');
         await expect(page.locator('div.tw-group').filter({ hasText: 'eweventuser@gmail.com' }).last(), 'Still a Director — nothing was saved').toContainText('Director');
     });
 
@@ -196,17 +194,16 @@ test.describe('Account Dashboard Tests', () => {
     test('Budget Approvals: approve first entry, reject second', async ({ page }) => {
         await page.getByText('Budget Approvals', { exact: true }).first().click();
         await page.waitForURL(/\/approvals\/budget-entries/, { timeout: 10000 });
-        await page.waitForLoadState('networkidle');
 
         const checkboxes = page.locator('input[id^="check-row-"]');
         await checkboxes.first().waitFor({ state: 'visible', timeout: 10000 });
 
         // Approve the first entry
         await checkboxes.nth(0).click();
-        await page.waitForTimeout(400);
-        await page.getByRole('button', { name: /^Approve$/i }).click();
-        await page.waitForLoadState('networkidle');
-        await page.waitForTimeout(1000);
+        const approveButton = page.getByRole('button', { name: /^Approve$/i });
+        await expect(approveButton).toBeVisible();
+        await approveButton.click();
+        await expect(approveButton).toBeHidden({ timeout: 15000 });
         console.log('First budget entry approved ✓');
 
         // The approved entry drops out of the Awaiting list, so what was previously
@@ -214,15 +211,17 @@ test.describe('Account Dashboard Tests', () => {
         // refresh, so re-fetch the checkbox locator rather than reusing the earlier one.
         await checkboxes.first().waitFor({ state: 'visible', timeout: 10000 });
         await page.locator('input[id^="check-row-"]').nth(0).click();
-        await page.waitForTimeout(400);
-        await page.getByRole('button', { name: /^(Reject|Deny)$/i }).click();
+        const rejectButton = page.getByRole('button', { name: /^(Reject|Deny)$/i });
+        await expect(rejectButton).toBeVisible();
+        await rejectButton.click();
 
         // Rejecting opens an "Add Reject Comments" modal — Submit stays disabled until
         // a comment is entered.
         await page.getByText('Add Reject Comments', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
         await page.getByLabel('Comments').or(page.locator('textarea')).first().fill('Rejected via automated test');
-        await page.getByRole('button', { name: /^Submit$/i }).click();
-        await page.waitForLoadState('networkidle');
+        const submitReject = page.getByRole('button', { name: /^Submit$/i });
+        await submitReject.click();
+        await expect(page.getByText('Add Reject Comments', { exact: true })).toBeHidden({ timeout: 15000 });
         console.log('Second budget entry rejected ✓');
 
         // ── Same page, remaining tabs ──────────────────────────────────────────────
@@ -240,28 +239,28 @@ test.describe('Account Dashboard Tests', () => {
         // Purchase Orders — same checkbox+toolbar pattern as Budget Entries. Row 0's
         // checkbox can be disabled (entry not yet actionable), so pick the first enabled one.
         await tabBar.getByText('Purchase Orders').first().click();
-        await page.waitForLoadState('networkidle');
         const poCheckbox = page.locator('input[id^="check-row-"]:not([disabled])').first();
         await poCheckbox.waitFor({ state: 'visible', timeout: 10000 });
         await poCheckbox.click();
-        await page.waitForTimeout(400);
-        await page.getByRole('button', { name: /^Approve$/i }).click();
-        await page.waitForLoadState('networkidle');
+        const approvePOButton = page.getByRole('button', { name: /^Approve$/i });
+        await expect(approvePOButton).toBeVisible();
+        await approvePOButton.click();
+        await expect(approvePOButton).toBeHidden({ timeout: 15000 });
         console.log('Purchase order approved ✓');
 
         // Supplier Invoices and Payruns — approve the first entry if any are pending,
         // otherwise just confirm the empty state and move on.
         for (const tabName of ['Supplier Invoices', 'Payruns']) {
             await tabBar.getByText(tabName).first().click();
-            await page.waitForLoadState('networkidle');
-            await page.waitForTimeout(1500);
+            await expect(page.locator('table').last()).toBeVisible({ timeout: 15000 });
 
             const hasData = await page.locator('input[id^="check-row-"]').count() > 0;
             if (hasData) {
                 await page.locator('input[id^="check-row-"]:not([disabled])').first().click();
-                await page.waitForTimeout(400);
-                await page.getByRole('button', { name: /^Approve$/i }).click();
-                await page.waitForLoadState('networkidle');
+                const approveTabButton = page.getByRole('button', { name: /^Approve$/i });
+                await expect(approveTabButton).toBeVisible();
+                await approveTabButton.click();
+                await expect(approveTabButton).toBeHidden({ timeout: 15000 });
                 console.log(`${tabName}: first entry approved ✓`);
             } else {
                 console.log(`${tabName}: empty — nothing to approve ✓`);
@@ -274,10 +273,9 @@ test.describe('Account Dashboard Tests', () => {
         // this only verifies the Approve action is present/enabled — it never clicks it,
         // to avoid burning through limited test data.
         await tabBar.getByText('Departments').first().click();
-        await page.waitForLoadState('networkidle');
         // Slower to populate than the other tabs — briefly shows "Loading Departments" first.
-        await expect(page.getByText('Loading Departments')).toBeHidden({ timeout: 10000 }).catch(() => {});
-        await page.waitForTimeout(1000);
+        await expect(page.getByText('Loading Departments')).toBeHidden({ timeout: 15000 });
+        await expect(page.locator('table').last()).toBeVisible({ timeout: 15000 });
 
         const deptApproveButtons = page.getByRole('button', { name: /^Approve$/i });
         const deptCount = await deptApproveButtons.count();
@@ -290,7 +288,6 @@ test.describe('Account Dashboard Tests', () => {
 
         // ── Back to the account dashboard ────────────────────────────────────────
         await page.goto(ACCOUNT_DASH_URL);
-        await page.waitForLoadState('networkidle');
         await expect(page.getByText('All Events', { exact: true }).first()).toBeVisible({ timeout: 10000 });
         console.log('Back on account dashboard ✓');
     });
@@ -301,7 +298,6 @@ test.describe('Account Dashboard Tests', () => {
         const searchInput = page.getByPlaceholder('Search events...');
         await searchInput.waitFor({ state: 'visible', timeout: 5000 });
         await searchInput.fill('diya');
-        await page.waitForTimeout(800);
 
         // Verify the event name appears anywhere in the list (works regardless of row element type)
         await expect(page.getByText(/DiyaFest/i).first()).toBeVisible({ timeout: 5000 });
@@ -323,8 +319,6 @@ test.describe('Account Dashboard Tests', () => {
         // Calendar toggle is the second icon-only button in the toolbar (first = list view)
         const toolbar = page.getByRole('button', { name: 'Filters' }).locator('xpath=../..');
         await toolbar.getByRole('button').nth(1).click();
-        await page.waitForLoadState('networkidle');
-        await page.waitForTimeout(1000);
 
         const monthHeading = page.getByText(/^[A-Z][a-z]+ \d{4}$/);
         await expect(monthHeading).toBeVisible({ timeout: 10000 });
@@ -334,9 +328,10 @@ test.describe('Account Dashboard Tests', () => {
         const firstPill = () => page.locator('span.tw-block.tw-truncate').first();
 
         let monthsChecked = 0;
-        while (!(await firstPill().isVisible().catch(() => false)) && monthsChecked < 12) {
+        while (!(await firstPill().isVisible()) && monthsChecked < 12) {
+            const previousHeading = await monthHeading.innerText();
             await nextMonthBtn.click();
-            await page.waitForTimeout(700);
+            await expect(monthHeading).not.toHaveText(previousHeading, { timeout: 10000 });
             monthsChecked++;
         }
 
@@ -344,9 +339,8 @@ test.describe('Account Dashboard Tests', () => {
         await expect(pill).toBeVisible({ timeout: 5000 });
         const eventName = (await pill.textContent()).trim();
         console.log(`Found event "${eventName}" after checking ${monthsChecked} month(s) forward`);
-
         await pill.hover();
-        await page.waitForTimeout(800);
+        await pill.hover();
 
         // Hovering renders a separate tooltip clone of the event name (in addition to the
         // grid pill itself) — its presence confirms the detail popup opened.
@@ -460,7 +454,6 @@ test.describe('Account Dashboard Tests', () => {
         // "Tickets Sold" too forces the match up to the shared outer panel that wraps both.
         const columnsPanel = page.locator('div').filter({ hasText: 'Columns' }).filter({ hasText: 'Tickets Sold' }).last();
         await columnsPanel.waitFor({ state: 'visible', timeout: 5000 });
-        await page.waitForTimeout(500);
 
         for (const columnName of ['Tickets Sold', 'Net P&L']) {
             // The column label is a leaf span with exact text — its parent is the row div
@@ -469,15 +462,17 @@ test.describe('Account Dashboard Tests', () => {
             // The "Show" toggle's real <input type="checkbox"> is visually hidden — its sibling
             // <label> is the switch UI and the actual click target. First label = Show column.
             const showToggle = row.locator('label').first();
+            const showCheckbox = row.locator('input[type="checkbox"]').first();
+            const columnText = page.locator('body').getByText(columnName, { exact: true });
 
             await showToggle.click();
-            await page.waitForTimeout(500);
-            const headerAfterOff = await page.locator('body').getByText(columnName, { exact: true }).count();
+            await expect(showCheckbox).not.toBeChecked();
+            const headerAfterOff = await columnText.count();
             console.log(`"${columnName}" toggled OFF — visible instances: ${headerAfterOff}`);
 
             await showToggle.click();
-            await page.waitForTimeout(500);
-            const headerAfterOn = await page.locator('body').getByText(columnName, { exact: true }).count();
+            await expect(showCheckbox).toBeChecked();
+            const headerAfterOn = await columnText.count();
             expect(headerAfterOn).toBeGreaterThan(0);
             console.log(`"${columnName}" toggled back ON — visible instances: ${headerAfterOn} ✓`);
         }
@@ -503,28 +498,27 @@ test.describe('Account Dashboard Tests', () => {
 
         const columnsPanel = page.locator('div').filter({ hasText: 'Columns' }).filter({ hasText: 'Tickets Sold' }).last();
         await columnsPanel.waitFor({ state: 'visible', timeout: 5000 });
-        await page.waitForTimeout(500);
 
         const netPLRow = columnsPanel.getByText('Net P&L', { exact: true }).locator('xpath=..');
 
         const netPLShowCheckbox = page.locator('#dashboard-column-profit_and_loss');
         if (!(await netPLShowCheckbox.isChecked())) {
             await netPLRow.locator('label').first().click();
-            await page.waitForTimeout(500);
+            await expect(netPLShowCheckbox).toBeChecked();
         }
 
         // Compact mode collapses the cell down to just the Net P&L number and drops the
         // Revenue/Costs breakdown this test reads — turn it off if it's on.
         const netPLCompactCheckbox = page.locator('#dashboard-column-profit_and_loss-compact');
-        if (await netPLCompactCheckbox.isChecked().catch(() => false)) {
+        if (await netPLCompactCheckbox.isChecked()) {
             await netPLRow.locator('label').nth(1).click();
-            await page.waitForTimeout(500);
+            await expect(netPLCompactCheckbox).not.toBeChecked();
         }
 
         // The Columns panel is a custom dropdown, not a native dialog — Escape doesn't
         // reliably close it, so click outside it instead (top-left corner, clear of the panel).
         await page.mouse.click(10, 10);
-        await page.waitForTimeout(500);
+        await expect(columnsPanel).toBeHidden({ timeout: 5000 });
 
         // The row locator is scoped to the event list container — a[href*="/event/"] also
         // matches an unrelated "recently viewed" link in the sidebar nav (outside the table),
@@ -584,16 +578,16 @@ test.describe('Account Dashboard Tests', () => {
         const targetMonthHeading = eventDate.toLocaleString('en-US', { month: 'long', year: 'numeric' });
 
         await toolbar.getByRole('button').nth(1).click();
-        await page.waitForLoadState('networkidle');
-        await page.waitForTimeout(1000);
 
         const monthHeading = page.getByText(/^[A-Z][a-z]+ \d{4}$/);
+        await expect(monthHeading).toBeVisible({ timeout: 10000 });
         const nextMonthBtn = monthHeading.locator('xpath=..').locator('button').last();
         let heading = (await monthHeading.textContent()).trim();
         let monthsChecked = 0;
         while (heading !== targetMonthHeading && monthsChecked < 24) {
+            const previousHeading = heading;
             await nextMonthBtn.click();
-            await page.waitForTimeout(600);
+            await expect(monthHeading).not.toHaveText(previousHeading, { timeout: 10000 });
             heading = (await monthHeading.textContent()).trim();
             monthsChecked++;
         }
@@ -605,9 +599,9 @@ test.describe('Account Dashboard Tests', () => {
         const pill = page.locator('span.tw-block.tw-truncate').filter({ hasText: eventName }).first();
         await pill.waitFor({ state: 'visible', timeout: 10000 });
         await pill.hover();
-        await page.waitForTimeout(1000);
 
         const tooltip = page.locator('.v-popper__popper--shown, [role="tooltip"]').last();
+        await expect(tooltip).toBeVisible({ timeout: 10000 });
         const tooltipLines = (await tooltip.innerText()).split('\n').map(l => l.trim());
         const calendarRevenue = parseCurrency(tooltipLines[tooltipLines.indexOf('Revenue') + 1]);
         const calendarCosts = parseCurrency(tooltipLines[tooltipLines.indexOf('Costs') + 1]);
@@ -638,26 +632,25 @@ test.describe('Account Dashboard Tests', () => {
 
         const columnsPanel = page.locator('div').filter({ hasText: 'Columns' }).filter({ hasText: 'Tickets Sold' }).last();
         await columnsPanel.waitFor({ state: 'visible', timeout: 5000 });
-        await page.waitForTimeout(500);
 
         const ticketsColumnRow = columnsPanel.getByText('Tickets Sold', { exact: true }).locator('xpath=..');
 
         const ticketsShowCheckbox = page.locator('#dashboard-column-tickets');
         if (!(await ticketsShowCheckbox.isChecked())) {
             await ticketsColumnRow.locator('label').first().click();
-            await page.waitForTimeout(500);
+            await expect(ticketsShowCheckbox).toBeChecked();
         }
 
         // Compact mode may collapse this cell the same way it does for Net P&L — turn it off if on.
         const ticketsCompactCheckbox = page.locator('#dashboard-column-tickets-compact');
-        if (await ticketsCompactCheckbox.isChecked().catch(() => false)) {
+        if (await ticketsCompactCheckbox.isChecked()) {
             await ticketsColumnRow.locator('label').nth(1).click();
-            await page.waitForTimeout(500);
+            await expect(ticketsCompactCheckbox).not.toBeChecked();
         }
 
         // Columns panel is a custom dropdown, not a native dialog — click outside to close it.
         await page.mouse.click(10, 10);
-        await page.waitForTimeout(500);
+        await expect(columnsPanel).toBeHidden({ timeout: 5000 });
 
         const firstLink = page.locator('div.ew-list-view-events a[href*="/event/"]').first();
         await firstLink.waitFor({ state: 'visible', timeout: 10000 });
@@ -693,8 +686,7 @@ test.describe('Account Dashboard Tests', () => {
 
         // Sold — sum the "Sold" figure across every ticket type on the Bulk Entry page
         const ticketingPage = new TicketingPage(popup);
-        await popup.goto(`${eventBaseUrl}/tickets/bulk`, { waitUntil: 'domcontentloaded' });
-        await popup.waitForLoadState('networkidle');
+        await ticketingPage.navigateToTicketingPage(`${eventBaseUrl}/tickets/bulk`);
         await ticketingPage.expandAllBulkEntries();
         const bulkEntrySold = await ticketingPage.getTotalSoldTickets();
         console.log(`Bulk Entry "${eventName}": Sold=${bulkEntrySold}`);
@@ -716,20 +708,16 @@ test.describe('Account Dashboard Tests', () => {
         const originalStatus = (await statusBadge.textContent()).trim();
 
         await statusBadge.click();
-        await page.waitForTimeout(400);
 
         const statusOptions = ['Open', 'Draft', 'Confirmed', 'TBC', 'Closed'];
         const targetStatus = statusOptions.find(s => s.toLowerCase() !== originalStatus.toLowerCase());
 
         await page.getByText(targetStatus, { exact: true }).last().click();
-        await page.waitForTimeout(600);
         await expect(statusBadge).toContainText(targetStatus, { timeout: 5000 });
         console.log(`Status changed from "${originalStatus}" to "${targetStatus}" ✓`);
 
         await statusBadge.click();
-        await page.waitForTimeout(400);
         await page.getByText(originalStatus, { exact: true }).last().click();
-        await page.waitForTimeout(600);
         await expect(statusBadge).toContainText(originalStatus, { timeout: 5000 });
         console.log(`Status reverted to "${originalStatus}" ✓`);
     });
@@ -742,11 +730,9 @@ test.describe('Account Dashboard Tests', () => {
         const firstLink = rowLinks(page).first();
         const tagsCell = rowCell(firstLink, 'tags');
         await tagsCell.getByRole('button', { name: /add tags/i }).click();
-        await page.waitForTimeout(400);
 
         const tagCheckbox = page.locator('label, div').filter({ hasText: /^SgRegression$/ }).locator('input[type="checkbox"]').first();
         await tagCheckbox.check();
-        await page.waitForTimeout(500);
 
         await expect(page.getByText(/tag selected/i)).toBeVisible({ timeout: 5000 });
         console.log('Tag "SgRegression" selected ✓');
@@ -763,10 +749,12 @@ test.describe('Account Dashboard Tests', () => {
 
         const loadMoreBtn = page.getByRole('button', { name: /load more/i });
 
-        if (await loadMoreBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+        // The button is optional when all events already fit on the first page.
+        if (await loadMoreBtn.isVisible()) {
             const rowsBefore = await rowLinks(page).count();
             await loadMoreBtn.click();
-            await page.waitForTimeout(1000);
+            await expect.poll(() => rowLinks(page).count(), { timeout: 15000 })
+                .toBeGreaterThan(rowsBefore);
             const rowsAfter = await rowLinks(page).count();
             expect(rowsAfter).toBeGreaterThan(rowsBefore);
             console.log(`Load more: ${rowsBefore} → ${rowsAfter} events ✓`);
