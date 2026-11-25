@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import { TestHelpers } from '../tests/utils/test-helpers';
+import { TestHelpers } from '../tests/utils/test-helpers.js';
 
 export class RevenuePage {
 
@@ -20,11 +20,10 @@ export class RevenuePage {
             waitUntil: 'domcontentloaded',
             timeout: 60000,
         });
-        await this.page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-
         // Page title was renamed "Revenue Dashboard" → "Revenue"; accept either.
         await expect(this.page.getByRole('heading', { name: /^Revenue( Dashboard)?$/ }))
             .toBeVisible({ timeout: 30000 });
+        await expect(this.page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 30000 });
     }
 
     // ── KPI CARDS ────────────────────────────────────────────────────────────────
@@ -56,8 +55,8 @@ export class RevenuePage {
         const out = [];
         for (let i = 0; i < count; i++) {
             const fig = figures.nth(i);
-            const label = await fig.locator('span').first().innerText().catch(() => '');
-            const valueText = await fig.locator('div span').last().innerText().catch(() => '');
+            const label = await fig.locator('span').first().innerText();
+            const valueText = await fig.locator('div span').last().innerText();
             out.push({ label: label.trim(), value: this.helpers.parseCurrency(valueText) });
         }
         return out;
@@ -129,7 +128,7 @@ export class RevenuePage {
 
     async selectTicketsTab(tabName) {
         await this.ticketsPanel().getByRole('button', { name: tabName, exact: true }).click();
-        await this.page.waitForTimeout(800);
+        await expect(this.page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 15000 });
     }
 
     // Seller buttons listed on the "Ticket Sellers" tab.
@@ -141,8 +140,7 @@ export class RevenuePage {
 
     async selectTicketSeller(sellerName) {
         await this.ticketsPanel().getByRole('button', { name: sellerName, exact: true }).click();
-        await this.page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
-        await this.page.waitForTimeout(1000);
+        await expect(this.page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 15000 });
     }
 
     // Reads the visible ticket table in the panel into row objects keyed by column
@@ -154,8 +152,8 @@ export class RevenuePage {
         // A seller with no tickets shows no table at all.
         if (!await table.waitFor({ state: 'visible', timeout: 5000 }).then(() => true, () => false)) return [];
         // Rows load after the table shell renders.
-        await table.locator(':scope > tbody > tr').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
-        await this.page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+        await expect(this.page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 15000 });
+        await table.locator(':scope > tbody > tr').first().waitFor({ state: 'visible', timeout: 10000 });
 
         const headerRows = table.locator(':scope > thead > tr');
         const groups = (await headerRows.first().locator('th').allInnerTexts()).map(t => t.trim()).filter(Boolean);
@@ -203,8 +201,7 @@ export class RevenuePage {
         const menu = await this.openTicketModeMenu();
         await menu.getByText(modeName, { exact: true }).click();
         await expect(this.ticketModeLabel()).toContainText(modeName);
-        await this.page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
-        await this.page.waitForTimeout(1000);
+        await expect(this.page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 15000 });
         console.log(`🎟️ Ticket mode: ${modeName}`);
     }
 
@@ -240,9 +237,9 @@ export class RevenuePage {
         const win = this.addTicketsWindow();
         // A Quick Create menu left open over the window swallows clicks — dismiss it first.
         const quickCreate = this.page.locator('.v-popper__popper--shown').filter({ hasText: 'Quick Create' });
-        if (await quickCreate.isVisible().catch(() => false)) {
+        if (await quickCreate.isVisible()) {
             await win.locator('h4').first().click();
-            await quickCreate.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
+            await quickCreate.waitFor({ state: 'hidden', timeout: 5000 });
         }
         await win.locator('button').filter({ has: this.page.locator('i.mdi-close') }).first().click();
         await win.waitFor({ state: 'hidden', timeout: 10000 });
@@ -276,8 +273,7 @@ export class RevenuePage {
         await expect(created).toBeVisible({ timeout: 15000 });
         await this.page.getByRole('button', { name: 'No thanks', exact: true }).click();
         await expect(created).toBeHidden({ timeout: 10000 });
-        if (await win.isVisible().catch(() => false)) await this.closeAddTicketsWindow();
-        await this.page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+        if (await win.isVisible()) await this.closeAddTicketsWindow();
         console.log(`✅ Ticket created: ${name}`);
     }
 
@@ -292,8 +288,7 @@ export class RevenuePage {
         await this.page.getByText('Revenue Entries', { exact: true })
             .waitFor({ state: 'visible', timeout: 10000 });
         await this.page.getByText('Loading...', { exact: true })
-            .waitFor({ state: 'hidden', timeout: 10000 })
-            .catch(() => {});
+            .waitFor({ state: 'hidden', timeout: 10000 });
     }
 
     // Returns the Title column values from the "Revenue Entries" table —
@@ -303,12 +298,12 @@ export class RevenuePage {
         const panel = this.page.locator('table').filter({ hasText: 'Subcategory' }).filter({ hasText: 'Customer' }).first();
 
         const perPageSelect = this.page.locator('select').filter({ hasText: '10' }).first();
-        if (await perPageSelect.isVisible().catch(() => false)) {
+        if (await perPageSelect.isVisible()) {
             const options = await perPageSelect.locator('option').allTextContents();
             const max = options.map(o => parseInt(o, 10)).filter(n => !isNaN(n)).sort((a, b) => b - a)[0];
             if (max) {
                 await perPageSelect.selectOption(String(max));
-                await this.page.waitForTimeout(500);
+                await expect(this.page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 15000 });
             }
         }
 
@@ -316,7 +311,7 @@ export class RevenuePage {
         const count = await rows.count();
         const titles = [];
         for (let i = 0; i < count; i++) {
-            const title = await rows.nth(i).locator('td').first().innerText().catch(() => '');
+            const title = await rows.nth(i).locator('td').first().innerText();
             if (title.trim()) titles.push(title.trim());
         }
         return titles;
@@ -334,29 +329,32 @@ export class RevenuePage {
         const streamRow = section.locator('tr.tw-cursor-pointer').filter({ hasText: streamName }).first();
         await streamRow.waitFor({ state: 'visible', timeout: 10000 });
         await streamRow.locator('button').filter({ has: this.page.locator('i.mdi-cash-plus') }).first().click();
-        await this.page.getByText('New Revenue Entry', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+        const drawer = this.page.getByText('New Revenue Entry', { exact: true });
+        await drawer.waitFor({ state: 'visible', timeout: 10000 });
 
         // Title
-        await this.page.locator('input').first().fill(title);
-        await this.page.waitForTimeout(300);
+        const titleInput = this.page.locator('input').first();
+        await titleInput.fill(title);
+        await expect(titleInput).toHaveValue(title);
 
         // Subcategory — second contenteditable field (first is Revenue Stream, pre-filled)
         const subcatField = this.page.locator('[contenteditable="true"]').nth(1);
         await subcatField.click();
-        await this.page.waitForTimeout(600);
-        await this.page.getByText(subcategory, { exact: true }).click();
-        await this.page.waitForTimeout(800);
+        const subcategoryOption = this.page.getByText(subcategory, { exact: true });
+        await subcategoryOption.waitFor({ state: 'visible', timeout: 10000 });
+        await subcategoryOption.click();
+        await expect(subcatField).toContainText(subcategory);
 
         // Customer — searchable field rendered with a "Type to search" placeholder span
         const customerField = this.page.getByText('Type to search', { exact: true });
         await customerField.click();
         await this.page.keyboard.type(customer, { delay: 40 });
-        await this.page.waitForTimeout(800);
-        await this.page.getByText(customer, { exact: true }).last().click();
-        await this.page.waitForTimeout(500);
+        const customerOption = this.page.getByText(customer, { exact: true }).last();
+        await customerOption.waitFor({ state: 'visible', timeout: 10000 });
+        await customerOption.click();
+        await expect(this.page.getByText(customer, { exact: true }).first()).toBeVisible();
         // Selecting a customer reopens its dropdown — dismiss by clicking the drawer title
-        await this.page.getByText('New Revenue Entry', { exact: true }).click();
-        await this.page.waitForTimeout(300);
+        await drawer.click();
 
         // Line item — one row exists by default once Subcategory is set (no need
         // to click "+ Add line item" for the first row)
@@ -369,10 +367,8 @@ export class RevenuePage {
         await this.page.keyboard.type(String(qty), { delay: 30 });
         await editableCells.last().click({ clickCount: 3 });
         await this.page.keyboard.type(String(unitPrice), { delay: 30 });
-        await this.page.waitForTimeout(300);
 
         await this.page.getByRole('button', { name: 'Create Revenue Entry' }).click();
-        await this.page.waitForTimeout(1500);
 
         await expect(this.page.getByText(title, { exact: true }).first())
             .toBeVisible({ timeout: 10000 });
@@ -386,30 +382,28 @@ export class RevenuePage {
     // `onReview(wizard)` runs on the final step, before "Raise Invoice" is clicked.
     async raiseInvoiceForEntry({ onReview } = {}) {
         await this.page.locator('button, a').filter({ hasText: /^Invoices$/ }).first().click();
-        await this.page.waitForTimeout(600);
 
         await this.page.locator('button, a').filter({ hasText: /raise.+invoice/i }).first().click();
-        await this.page.waitForTimeout(800);
+        const wizard = this.page.locator('div.m-wrapper').filter({ hasText: 'Raise Sales Invoice' }).last();
+        await wizard.waitFor({ state: 'visible', timeout: 10000 });
 
         // If the customer has no saved address, "Raise Sales Invoice" shows a
         // warning + "Update Customer" button before the line-item selection step.
         const updateCustomerBtn = this.page.getByRole('button', { name: 'Update Customer' });
-        if (await updateCustomerBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+        if (await updateCustomerBtn.isVisible()) {
             await updateCustomerBtn.click();
-            await this.page.waitForTimeout(800);
             await this.page.getByRole('button', { name: "Yes, I'm sure" }).click();
-            await this.page.waitForTimeout(1200);
+            await expect(updateCustomerBtn).toBeHidden({ timeout: 10000 });
         }
 
         // Line item(s) are preselected by default — proceed.
         await this.page.getByRole('button', { name: 'Next' }).click();
-        await this.page.waitForTimeout(800);
+        await expect(wizard.getByRole('button', { name: 'Raise Invoice' })).toBeVisible({ timeout: 10000 });
 
         if (onReview) {
             await onReview(this.page.locator('div.m-wrapper').filter({ hasText: 'Raise Sales Invoice' }).last());
         }
         await this.page.getByRole('button', { name: 'Raise Invoice' }).click();
-        await this.page.waitForTimeout(1500);
 
         const successToast = this.page.locator('div.toast-success').filter({ hasText: /invoice created/i }).first();
         await expect(successToast).toBeVisible({ timeout: 10000 });
@@ -460,7 +454,7 @@ export class RevenuePage {
     async openInvoiceActionsMenu() {
         const actionsBtn = this.page.getByText('Actions', { exact: true }).first();
         await actionsBtn.click();
-        await this.page.waitForTimeout(400);
+        await this.page.locator('.v-popper__popper--shown, [role="menu"]').last().waitFor({ state: 'visible', timeout: 10000 });
     }
 
     // Text of every item in the open Actions dropdown (call after openInvoiceActionsMenu()).
@@ -475,16 +469,14 @@ export class RevenuePage {
     async sendInvoiceByEmail(emailAddress) {
         await this.openInvoiceActionsMenu();
         await this.page.getByText('Send invoice by email', { exact: true }).click();
-        await this.page.waitForTimeout(800);
 
         const emailInput = this.page.getByPlaceholder('Type an email address and press enter to add');
         await emailInput.click();
         await emailInput.type(emailAddress);
         await this.page.keyboard.press('Enter');
-        await this.page.waitForTimeout(500);
+        await expect(this.page.getByText(emailAddress, { exact: true })).toBeVisible({ timeout: 10000 });
 
         await this.page.getByRole('button', { name: 'Send Email' }).click();
-        await this.page.waitForTimeout(1500);
 
         const successToast = this.page.locator('div.toast-success').filter({ hasText: /invoice sent/i }).first();
         await expect(successToast).toBeVisible({ timeout: 10000 });
@@ -498,18 +490,15 @@ export class RevenuePage {
     async addPaymentDate() {
         await this.openInvoiceActionsMenu();
         await this.page.getByText('Manage payment dates', { exact: true }).click();
-        await this.page.waitForTimeout(800);
 
         await this.page.getByText('New payment date', { exact: true }).click();
-        await this.page.waitForTimeout(800);
+        await this.page.locator('select').first().waitFor({ state: 'visible', timeout: 10000 });
 
         // Date is preselected to today and left as-is; explicitly pick the first
         // bank account option for determinism.
         await this.page.locator('select').first().selectOption({ index: 0 });
-        await this.page.waitForTimeout(300);
 
         await this.page.getByRole('button', { name: 'Save Changes' }).click();
-        await this.page.waitForTimeout(1500);
 
         await expect(this.page.getByRole('button', { name: /Payments\/Credits/i }))
             .toBeVisible({ timeout: 10000 });
@@ -556,7 +545,7 @@ export class RevenuePage {
         const drawer = this.revenueEntryDrawer();
         await drawer.getByRole('button', { name: 'Invoices', exact: true }).click();
         const eye = drawer.locator('tbody tr').locator('button').filter({ has: this.page.locator('i.mdi-eye') }).first();
-        if (!await eye.isVisible({ timeout: 3000 }).catch(() => false)) return false;
+        if (!await eye.isVisible()) return false;
         await eye.click();
         await this.invoiceView().waitFor({ state: 'visible', timeout: 10000 });
         return true;
@@ -575,7 +564,7 @@ export class RevenuePage {
         await view.getByRole('button', { name: /^Details/ }).click();
         const value = async label => {
             const row = view.getByRole('row', { name: new RegExp(`^${label}`, 'i') }).first();
-            if (!await row.isVisible().catch(() => false)) return 0;
+            if (!await row.isVisible()) return 0;
             return this.helpers.parseCurrency((await row.innerText()).replace(new RegExp(label, 'i'), ''));
         };
         return {
@@ -598,18 +587,20 @@ export class RevenuePage {
         await this.clickInvoiceAction('Raise a credit note');
         const form = this.page.locator('.m-wrapper').filter({ hasText: 'Raise Credit Note' }).last();
         await form.waitFor({ state: 'visible', timeout: 10000 });
-        // The form loads the currency conversion rate in the background; submitting before
-        // it arrives fails with "The conversion rate field is required" — wait, retry once.
-        await this.page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
         const conversionError = form.getByText(/conversion rate/i);
         for (let attempt = 0; attempt < 2; attempt++) {
             await form.getByRole('button', { name: /^Raise Credit Note$/i }).click();
             const outcome = await Promise.race([
                 form.waitFor({ state: 'hidden', timeout: 20000 }).then(() => 'saved'),
                 conversionError.first().waitFor({ state: 'visible', timeout: 20000 }).then(() => 'conversion-error'),
-            ]).catch(() => 'timeout');
+            ]).catch(error => {
+                // Both web-first outcomes may time out while the async conversion-rate request is still pending.
+                if (error.name === 'TimeoutError') return 'timeout';
+                throw error;
+            });
             if (outcome === 'saved') break;
             console.log(`⚠️ Credit note not raised (${outcome}) — retrying after the form finishes loading`);
+            // The async conversion-rate request has no exposed loading state; the validation error is the only signal.
             await this.page.waitForTimeout(3000);
         }
         await expect(form).toBeHidden({ timeout: 20000 });
@@ -627,7 +618,7 @@ export class RevenuePage {
         const dialog = this.page.locator('.m-wrapper').filter({ hasText: 'Delete Invoice' }).last();
         await dialog.waitFor({ state: 'visible', timeout: 10000 });
         const check = dialog.getByRole('button', { name: 'Check Invoice', exact: true });
-        if (await check.isVisible().catch(() => false)) {
+        if (await check.isVisible()) {
             await check.click();
             await expect(dialog.getByRole('button', { name: 'Void in Xero & Delete', exact: true })).toBeVisible({ timeout: 15000 });
         }
@@ -643,7 +634,7 @@ export class RevenuePage {
             await this.gotoRevenueDashboard();
             await this.expandStreamRow(streamName);
             const row = this.revenueEntryRow(pattern);
-            if (!await row.isVisible({ timeout: 3000 }).catch(() => false)) return;
+            if (!await row.isVisible()) return;
             const title = (await row.locator('td').first().innerText()).trim();
             await row.locator('button').last().click();
             await expect(this.revenueEntryDrawer().getByText(title, { exact: true }).first()).toBeVisible({ timeout: 10000 });
