@@ -9,7 +9,7 @@
 // and attrition rate, and checks the Bar figures move by exactly that entry's share.
 // The entry is deleted afterwards so existing entries are never touched.
 import { test, expect } from '../../fixtures/baseTest.js';
-import { setupBudgetingTest } from '../utils/setup';
+import { setupBudgetingTest } from '../utils/setup.js';
 
 const STREAM = process.env.PPH_STREAM || 'Bar';
 const TICKET_TYPES = (process.env.PPH_TICKET_TYPES || 'Main,EarlyBird').split(',').map(s => s.trim()).filter(Boolean);
@@ -123,11 +123,8 @@ test.describe('Budgeting - Price Per Head Configuration', () => {
                 await verify(ticketTypes.slice(0, 1), ATTRITION);
             });
         } finally {
-            // Remove the test entry; log rather than throw so a cleanup failure
-            // doesn't hide the assertion that failed above.
-            await openConfig()
-                .then(() => budgetingPage.deletePricePerHeadEntries(ENTRY.name))
-                .catch(error => console.log(`⚠️ Could not delete ${ENTRY.name}: ${error.message}`));
+            await openConfig();
+            await budgetingPage.deletePricePerHeadEntries(ENTRY.name);
         }
     });
 });
