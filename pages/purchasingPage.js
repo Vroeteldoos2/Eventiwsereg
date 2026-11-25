@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import { TestHelpers } from '../tests/utils/test-helpers';
+import { TestHelpers } from '../tests/utils/test-helpers.js';
 
 export class PurchasingPage {
 
@@ -20,10 +20,9 @@ export class PurchasingPage {
             waitUntil: 'domcontentloaded',
             timeout: 60000,
         });
-        await this.page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-
         await expect(this.page.getByRole('heading', { name: 'Purchasing Summary' }))
             .toBeVisible({ timeout: 30000 });
+        await expect(this.page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 30000 });
     }
 
     // ── COST DEPARTMENTS TABLE ───────────────────────────────────────────────────
@@ -35,8 +34,8 @@ export class PurchasingPage {
         const out = [];
         for (let i = 0; i < count; i++) {
             const fig = figures.nth(i);
-            const label = await fig.locator('span').first().innerText().catch(() => '');
-            const valueText = await fig.locator('div span').last().innerText().catch(() => '');
+            const label = await fig.locator('span').first().innerText();
+            const valueText = await fig.locator('div span').last().innerText();
             out.push({ label: label.trim(), value: this.helpers.parseCurrency(valueText) });
         }
         return out;
@@ -59,7 +58,7 @@ export class PurchasingPage {
         const count = await rows.count();
         const names = [];
         for (let i = 0; i < count; i++) {
-            const name = await rows.nth(i).locator('h6, h5, h4').first().innerText().catch(() => '');
+            const name = await rows.nth(i).locator('h6, h5, h4').first().innerText();
             if (name.trim()) names.push(name.trim());
         }
         return names;
@@ -85,7 +84,7 @@ export class PurchasingPage {
 
     async expandAllDepartments() {
         await this.page.getByText('Expand all', { exact: true }).click();
-        await this.page.waitForTimeout(800);
+        await expect(this.departmentsSection().locator('tbody tr.tw-cursor-pointer').first()).toBeVisible({ timeout: 15000 });
     }
 
     // ── FIGURES (Summary and department pages) ───────────────────────────────────
@@ -138,7 +137,7 @@ export class PurchasingPage {
         await this.departmentRow(name).locator('button').last().click();
         await this.page.waitForURL(/\/purchasing\/summary\/\d+/, { timeout: 15000 });
         await expect(this.subcategoriesSection().locator('tr.tw-cursor-pointer').first()).toBeVisible({ timeout: 20000 });
-        await this.page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+        await expect(this.page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 15000 });
     }
 
     subcategoriesSection() {
@@ -172,7 +171,6 @@ export class PurchasingPage {
     async closeColumnPicker(dialog) {
         await dialog.locator('button.m-close').click();
         await dialog.waitFor({ state: 'hidden', timeout: 10000 });
-        await this.page.waitForTimeout(800);
     }
 
     columnCheckbox(dialog, label) {
@@ -211,22 +209,23 @@ export class PurchasingPage {
     async chooseOption(fieldName, search, optionText = search) {
         await this.purchaseOrderField(fieldName).click();
         if (search) await this.page.keyboard.type(search, { delay: 40 });
-        await this.page.waitForTimeout(800);
         const option = this.page.locator('.selector-dropdown a').filter({ hasText: optionText }).first();
         await option.waitFor({ state: 'visible', timeout: 10000 });
         const chosen = (await option.innerText()).trim();
         await option.click();
-        await this.page.waitForTimeout(500);
+        await expect(this.purchaseOrderField(fieldName)).toContainText(chosen);
         return chosen;
     }
 
     // Options a field's selector offers (the selector is closed again).
     async listOptions(fieldName) {
         await this.purchaseOrderField(fieldName).click();
-        await this.page.waitForTimeout(1000);
-        const options = (await this.page.locator('.selector-dropdown a').allInnerTexts()).map(text => text.trim()).filter(Boolean);
+        const dropdown = this.page.locator('.selector-dropdown a');
+        await expect(dropdown.first()).toBeVisible({ timeout: 10000 });
+        const options = (await dropdown.allInnerTexts()).map(text => text.trim()).filter(Boolean);
         await this.page.keyboard.press('Escape');
         await this.page.locator('h2').first().click();
+        await expect(dropdown.first()).toBeHidden();
         return options;
     }
 
@@ -245,9 +244,10 @@ export class PurchasingPage {
         await price.pressSequentially(String(unitPrice), { delay: 30 });
         if (taxRate) {
             await lineRow.getByRole('button', { name: 'None', exact: true }).click();
-            await this.page.getByText(taxRate).first().click();
+            const option = this.page.getByText(taxRate).first();
+            await option.waitFor({ state: 'visible', timeout: 10000 });
+            await option.click();
         }
-        await this.page.waitForTimeout(400);
     }
 
     // Create & View: returns the PO panel once it is showing as a Draft.
@@ -265,7 +265,7 @@ export class PurchasingPage {
             r => r.request().method() === 'DELETE' && /\/purchaseorders\/\d+\/delete/.test(r.url()), { timeout: 20000 });
         await panel.getByRole('button', { name: /Delete/ }).first().click();
         expect((await deleted).ok(), 'Draft purchase order deleted').toBe(true);
-        await panel.waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {});
+        await panel.waitFor({ state: 'hidden', timeout: 15000 });
     }
 
     // Purchase orders listed under an expanded department row, keyed by column:
@@ -305,8 +305,7 @@ export class PurchasingPage {
 
     async selectTile(title) {
         await this.page.getByText(title, { exact: true }).first().click();
-        await this.page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
-        await this.page.waitForTimeout(1500);
+        await expect(this.page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 15000 });
     }
 
     // Everything on one page of results: the biggest page size offered by the first page-size selector.
@@ -315,7 +314,7 @@ export class PurchasingPage {
         if (await perPage.count()) {
             const options = await perPage.locator('option').allInnerTexts();
             await perPage.selectOption({ label: options[options.length - 1] });
-            await this.page.waitForTimeout(1500);
+            await expect(this.page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 15000 });
         }
     }
 
@@ -353,7 +352,6 @@ export class PurchasingPage {
     async readAnalysisDepartmentEntries(name) {
         await this.page.locator('table').first().locator('> tbody > tr').filter({ has: this.page.getByText(name, { exact: true }) })
             .first().getByText(name, { exact: true }).first().click();
-        await this.page.waitForTimeout(1500);
         const nested = this.page.locator('table table').first();
         await nested.waitFor({ state: 'visible', timeout: 10000 });
         return this.readTable(nested);
@@ -361,7 +359,8 @@ export class PurchasingPage {
 
     // Tables of the Outstanding Payments / Next Payment Run tiles.
     async readAnalysisPurchaseOrders() {
-        if (await this.page.getByText('There are no purchase orders to show').isVisible().catch(() => false)) return [];
+        // This message is the page's intentional empty state for events without POs.
+        if (await this.page.getByText('There are no purchase orders to show').isVisible()) return [];
         await this.showAllRows();
         return this.readTable(this.page.locator('table').first());
     }
@@ -373,8 +372,7 @@ export class PurchasingPage {
         await this.page.locator('a[href$="/purchasing/payruns"]:visible').first().click();
         await this.page.waitForURL(/\/purchasing\/payruns/, { timeout: 15000 });
         await expect(this.page.getByText(/^Payruns for /)).toBeVisible({ timeout: 20000 });
-        await this.page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
-        await this.page.waitForTimeout(1500);
+        await expect(this.page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 15000 });
     }
 
     // Date strip tile ("Friday 23rd"): { payruns, payments } as the tile says ("1 payrun", "No payments").
@@ -393,8 +391,7 @@ export class PurchasingPage {
         const day = Number(isoDate.slice(8, 10));
         const suffix = day % 10 === 1 && day !== 11 ? 'st' : day % 10 === 2 && day !== 12 ? 'nd' : day % 10 === 3 && day !== 13 ? 'rd' : 'th';
         await this.page.locator('.date-selector').getByText(`${day}${suffix}`, { exact: true }).first().click();
-        await this.page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
-        await this.page.waitForTimeout(1500);
+        await expect(this.page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 15000 });
     }
 
     // Available payments for the selected date: [{ 'Invoice Number': …, 'Due Date': …, Amount: … }]
@@ -428,7 +425,8 @@ export class PurchasingPage {
             await row.waitFor({ state: 'visible', timeout: 15000 });
             await row.locator('input[type="checkbox"]').first().check({ force: true });
         }
-        await this.page.waitForTimeout(600);
+        await expect.poll(async () => (await this.readPayrunFormTotals()).payments)
+            .toBe(invoiceNumbers.length);
     }
 
     // Run Value / Payments figures at the foot of the Create Payrun form.
@@ -445,7 +443,6 @@ export class PurchasingPage {
         await expect(this.page.getByText('Your payrun has been created successfully')).toBeVisible({ timeout: 20000 });
         await expect(this.page.getByText('Loading Information')).toBeHidden({ timeout: 20000 });
         await expect(this.page.getByText(/^Payruns for /)).toBeVisible({ timeout: 20000 });
-        await this.page.waitForTimeout(1000);
     }
 
     // Payruns of the selected date: [{ Title, Value, Items, 'Payment Date', Status }]
@@ -459,7 +456,6 @@ export class PurchasingPage {
     async openPayrun(title) {
         await this.page.locator('tbody tr').filter({ hasText: title }).locator('button').last().click();
         await expect(this.page.getByRole('button', { name: /Return to Payruns/ })).toBeVisible({ timeout: 20000 });
-        await this.page.waitForTimeout(1500);
     }
 
     // Status text shown on an open payrun ("Draft", "Awaiting Approval", "Paid", …).
