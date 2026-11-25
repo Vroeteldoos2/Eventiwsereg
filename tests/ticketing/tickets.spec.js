@@ -17,9 +17,29 @@ import { parseCsv, readCsvRecords, readXlsx } from '../utils/spreadsheet.js';
 
 const IMPORT_TEMPLATE = './fixtures/ticket-import-template.csv';
 
+async function dismissOptionalAlert(page) {
+    const ok = page.locator('.swal2-container').getByRole('button', { name: 'OK', exact: true });
+    try {
+        await ok.waitFor({ state: 'visible', timeout: 2000 });
+    } catch (error) {
+        // The broken delete actions may or may not show an alert; the test asserts the actual row state.
+        if (error.name === 'TimeoutError') return;
+        throw error;
+    }
+    await ok.click();
+}
+
 test.describe('Ticketing Tickets page', () => {
 
     let tickets;
+
+    async function cleanupBankTransactionTest(name) {
+        try {
+            await tickets.deleteTestBankTransactions(name);
+        } finally {
+            await tickets.deleteTestTickets();
+        }
+    }
 
     test.beforeEach(async ({ page }) => {
         tickets = new TicketsPage(page);
@@ -337,8 +357,7 @@ test.describe('Ticketing Tickets page', () => {
             expect(listed[0].date, 'Date').toMatch(/^[A-Z][a-z]{2} \d{1,2}, \d{4}, \d{1,2}:\d{2} [AP]M$/);
             await expect(dialog.locator('tbody tr').first().locator('button'), 'An action is available on the row').toHaveCount(1);
         } finally {
-            await tickets.deleteTestBankTransactions(name).catch(() => {});
-            await tickets.deleteTestTickets();
+            await cleanupBankTransactionTest(name);
         }
     });
 
@@ -356,11 +375,10 @@ test.describe('Ticketing Tickets page', () => {
             const dialog = await tickets.openBankTransactions(name, 'Direct Sales');
             page.on('dialog', confirm => confirm.accept());
             await dialog.locator('tbody tr').first().locator('button').click();
-            await page.locator('.swal2-container').getByRole('button', { name: 'OK', exact: true }).click({ timeout: 2000 }).catch(() => {});
+            await dismissOptionalAlert(page);
             await expect(dialog.locator('tbody tr'), 'The bank transaction is removed from the list').toHaveCount(0, { timeout: 8000 });
         } finally {
-            await tickets.deleteTestBankTransactions(name).catch(() => {});
-            await tickets.deleteTestTickets();
+            await cleanupBankTransactionTest(name);
         }
     });
 
@@ -379,7 +397,7 @@ test.describe('Ticketing Tickets page', () => {
             page.on('dialog', confirm => confirm.accept());
             const menu = await tickets.openChannelMenu(name, 'Direct Sales');
             await menu.getByText('Delete Ticket Sale', { exact: true }).click();
-            await page.locator('.swal2-container').getByRole('button', { name: 'OK', exact: true }).click({ timeout: 2000 }).catch(() => {});
+            await dismissOptionalAlert(page);
             await expect.poll(async () => (await tickets.readSalesChannels()).filter(channel => channel.ticket === name).length,
                 { message: 'The ticket sale row is removed', timeout: 8000 }).toBe(0);
             await tickets.goto();
