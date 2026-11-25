@@ -28,8 +28,9 @@ export class newEventCreation {
 
     async gotoOnboardingPage() {
         await this.page.goto(`${BASE_URL}/onboarding`);
-        await this.page.waitForLoadState('networkidle');
-        await this.page.getByRole('button', { name: regressionAccountName }).click();
+        const accountButton = this.page.getByRole('button', { name: regressionAccountName });
+        await expect(accountButton).toBeVisible({ timeout: 30000 });
+        await accountButton.click();
         await this.page.waitForLoadState('domcontentloaded');
     }
 
@@ -376,6 +377,7 @@ export class newEventCreation {
 
     /** Click "Add Seller" header button and choose a seller type from the dropdown. */
     async addSeller(sellerType = 'Direct Sales') {
+        const inputCount = await this.page.locator('input[type="number"]').count();
         await this.page.getByRole('button', { name: 'Add Seller' }).click();
 
         await this.page.getByRole('option', { name: sellerType })
@@ -383,7 +385,8 @@ export class newEventCreation {
             .first()
             .click();
 
-        await this.page.waitForTimeout(400);
+        await expect.poll(() => this.page.locator('input[type="number"]').count())
+            .toBeGreaterThan(inputCount);
         console.log(`Seller type "${sellerType}" added`);
     }
 
@@ -403,8 +406,10 @@ export class newEventCreation {
 
     /** Click "+ Add another ticket" to append a new empty row. */
     async addAnotherTicket() {
+        const numberInputs = this.page.locator('input[type="number"]');
+        const inputCount = await numberInputs.count();
         await this.page.getByText('Add another ticket', { exact: false }).click();
-        await this.page.waitForTimeout(400);
+        await expect.poll(() => numberInputs.count()).toBeGreaterThan(inputCount);
         console.log('New ticket row added');
     }
 
