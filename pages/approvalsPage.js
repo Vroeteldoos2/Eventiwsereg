@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import { TestHelpers } from '../tests/utils/test-helpers';
+import { TestHelpers } from '../tests/utils/test-helpers.js';
 
 // Approvals: what is waiting for approval, one page per kind of item. Built on an event URL it is the event's
 // Approvals menu; built on an account URL it is the account-wide version (which adds an Event column).
@@ -22,10 +22,12 @@ export class ApprovalsPage {
     // section: a key of APPROVAL_SECTIONS. Waits for the list (or its "No data available" message).
     async goto(section) {
         await this.page.goto(`${this.baseUrl}/approvals/${section}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
-        await this.page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-        await expect(this.page.locator('thead').first()).toBeVisible({ timeout: 30000 });
-        await expect(this.page.locator('tbody tr').first()).toBeVisible({ timeout: 30000 });
-        await this.page.waitForTimeout(1000);
+        const emptyState = this.page.getByText('No data available', { exact: true });
+        const header = this.page.locator('thead').first();
+        await expect(emptyState.or(header)).toBeVisible({ timeout: 30000 });
+        if (!await emptyState.isVisible()) {
+            await expect(this.page.locator('tbody tr').first()).toBeVisible({ timeout: 30000 });
+        }
     }
 
     // The page's sidebar links under Approvals: { 'Budget Entries': '/approvals', ... }
@@ -41,7 +43,9 @@ export class ApprovalsPage {
 
     // "[58 items in total]" under the list; 0 when the list is empty.
     async total() {
-        const text = await this.page.getByText(/items? in total/).first().innerText().catch(() => '');
+        const totalLabel = this.page.getByText(/items? in total/).first();
+        if (!(await totalLabel.count())) return 0;
+        const text = await totalLabel.innerText();
         return Number(text.match(/(\d+) items? in total/)?.[1] ?? 0);
     }
 
@@ -51,12 +55,12 @@ export class ApprovalsPage {
         if (await perPage.count()) {
             const options = await perPage.locator('option').allInnerTexts();
             await perPage.selectOption({ label: options[options.length - 1] });
-            await this.page.waitForTimeout(1500);
+            await expect(this.page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 15000 });
         }
     }
 
     isEmpty() {
-        return this.page.getByText('No data available').isVisible().catch(() => false);
+        return this.page.getByText('No data available', { exact: true }).isVisible();
     }
 
     // Rows as [{ Header: 'cell text' }] — empty when the page says "No data available".
