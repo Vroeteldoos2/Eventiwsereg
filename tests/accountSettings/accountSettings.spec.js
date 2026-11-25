@@ -25,14 +25,13 @@ async function setField(page, locator, value) {
     await locator.fill(String(value));
     await locator.blur();
     expect((await saved).ok(), `Saved ${value}`).toBe(true);
-    await page.waitForTimeout(1500); // let the page settle before the next field (quick successive saves can overwrite each other)
 }
 
 async function reload(page) {
     await page.goto(`${regressionAccountUrl}/settings`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByText('Your Organisation')).toBeVisible({ timeout: 20000 });
-    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
-    await page.waitForTimeout(1500);
+    await expect(field(page, 'accountName')).toBeVisible({ timeout: 20000 });
+    await expect(page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 20000 });
 }
 
 test.describe('Account Settings', () => {
@@ -118,7 +117,6 @@ test.describe('Account Settings', () => {
         for (const [key, id] of Object.entries(ids)) originals[key] = await field(page, id).inputValue();
         try {
             for (const [key, id] of Object.entries(ids)) await setField(page, field(page, id), BANK[key]);
-            await page.waitForTimeout(1000);
             await reload(page);
             for (const [key, id] of Object.entries(ids)) await expect(field(page, id), key).toHaveValue(BANK[key]);
         } finally {
@@ -139,6 +137,7 @@ test.describe('Account Settings', () => {
 
     const QA_EMAIL = process.env.QA_EMAIL?.trim() || '';
     const PREFERENCES = { days_to_sales_invoice_due: '45', hours_in_day: '8', poPrefix: 'POA', siPrefix: 'SIA', replyToEmail: QA_EMAIL };
+    const preferenceEntries = Object.entries(PREFERENCES).filter(([id]) => id !== 'replyToEmail' || QA_EMAIL);
 
     // Puts each preference back one at a time, reloading after each (changing several in a row can lose a value).
     async function restorePreferences(page, originals) {
@@ -151,12 +150,11 @@ test.describe('Account Settings', () => {
         for (const [id, value] of Object.entries(originals)) await expect(field(page, id), `${id} restored`).toHaveValue(value);
     }
 
-    test('General preferences: invoice lead days, hours in a day, PO / sales invoice prefixes and reply-to email are each saved', async ({ page }) => {
-        test.skip(!QA_EMAIL, 'Set QA_EMAIL to run the reply-to email preference test');
+    test('General preferences: invoice lead days, hours in a day, PO / sales invoice prefixes and the configured reply-to email are saved', async ({ page }) => {
         const originals = {};
-        for (const id of Object.keys(PREFERENCES)) originals[id] = await field(page, id).inputValue();
+        for (const [id] of preferenceEntries) originals[id] = await field(page, id).inputValue();
         try {
-            for (const [id, value] of Object.entries(PREFERENCES)) {
+            for (const [id, value] of preferenceEntries) {
                 await setField(page, field(page, id), value);
                 await reload(page);
                 await expect(field(page, id), `${id} after reload`).toHaveValue(value);
@@ -169,13 +167,12 @@ test.describe('Account Settings', () => {
     // Changing several preferences one after another: each save carries the whole account, and the PO prefix is often
     // found back at its old value after a reload (the later saves overwrite it).
     test('General preferences: several preferences changed in a row are all kept', async ({ page }) => {
-        test.skip(!QA_EMAIL, 'Set QA_EMAIL to run the reply-to email preference test');
         const originals = {};
-        for (const id of Object.keys(PREFERENCES)) originals[id] = await field(page, id).inputValue();
+        for (const [id] of preferenceEntries) originals[id] = await field(page, id).inputValue();
         try {
-            for (const [id, value] of Object.entries(PREFERENCES)) await setField(page, field(page, id), value);
+            for (const [id, value] of preferenceEntries) await setField(page, field(page, id), value);
             await reload(page);
-            for (const [id, value] of Object.entries(PREFERENCES)) await expect(field(page, id), id).toHaveValue(value);
+            for (const [id, value] of preferenceEntries) await expect(field(page, id), id).toHaveValue(value);
         } finally {
             await restorePreferences(page, originals);
         }
