@@ -66,10 +66,9 @@ export class TicketingPage {
     }
 
     async navigateToTicketingPage(url) {
-        await this.page.goto(url);
-        await this.page.waitForLoadState('networkidle');
-
+        await this.page.goto(url, { waitUntil: 'domcontentloaded' });
         const invalidDates = this.page.getByText('Invalid Event Dates', { exact: true });
+        await expect(invalidDates.or(this._ticketingPageReady(url))).toBeVisible({ timeout: 30000 });
         if (await invalidDates.isVisible()) {
             await this.page.getByRole('button', { name: /Visit Event Settings/i }).click();
             await this.page.waitForURL(/\/settings$/);
@@ -86,7 +85,22 @@ export class TicketingPage {
                 new URL(currentUrl).pathname === ticketingPath
             );
             await expect(invalidDates).toBeHidden();
+            await expect(this._ticketingPageReady(url)).toBeVisible({ timeout: 30000 });
         }
+    }
+
+    _ticketingPageReady(url) {
+        const path = new URL(url).pathname;
+        if (/\/tickets\/bulk\/?$/.test(path)) {
+            return this.page.getByRole('button', { name: /(expand|collapse) all/i }).first();
+        }
+        if (/\/tickets\/trends\/?$/.test(path)) {
+            return this.page.getByRole('heading', { name: 'Weekly Sales' });
+        }
+        if (/\/tickets\/transactions\/?$/.test(path)) {
+            return this.page.getByRole('button', { name: /add.*transaction/i }).first();
+        }
+        return this.page.getByText('Tickets Sold', { exact: true }).first();
     }
 
     async navigateToTrends() {
@@ -109,7 +123,8 @@ export class TicketingPage {
             .first();
         await salesBtn.waitFor({ state: 'visible', timeout: 10000 });
         await salesBtn.click();
-        await this.page.waitForTimeout(600);
+        await expect(this.page.locator('table').filter({ hasText: /Count/i }).last())
+            .toBeVisible({ timeout: 10000 });
         console.log('Sales tab selected');
     }
 
@@ -120,7 +135,8 @@ export class TicketingPage {
             .filter({ hasText: /^Revenue$/i })
             .first()
             .click();
-        await this.page.waitForTimeout(600);
+        await expect(this.page.locator('table, [class*="summary"], [class*="Summary"]')
+            .filter({ hasText: /fixed.*sales|actual.*sales/i }).first()).toBeVisible({ timeout: 10000 });
         console.log('Revenue tab selected');
     }
 
@@ -131,7 +147,7 @@ export class TicketingPage {
         await this.page.getByText('all ticket types', { exact: false })
             .first()
             .click();
-        await this.page.waitForTimeout(500);
+        await expect(this.page.locator('input[type="checkbox"]').first()).toBeVisible({ timeout: 8000 });
         console.log('"Showing all ticket types" clicked');
     }
 
@@ -144,28 +160,22 @@ export class TicketingPage {
         const checkbox = this.page.locator('input[type="checkbox"]').first();
         await checkbox.waitFor({ state: 'attached', timeout: 8000 });
 
-        const initiallyChecked = await checkbox.evaluate(el => el.checked).catch(() => false);
+        const initiallyChecked = await checkbox.isChecked();
 
         // Toggle via the closest label or parent element
         await checkbox.evaluate(el => {
             const label = el.closest('label') || el.parentElement;
             if (label) label.click();
         });
-        await this.page.waitForTimeout(300);
-
-        const afterFirst = await checkbox.evaluate(el => el.checked).catch(() => false);
-        expect(afterFirst).toBe(!initiallyChecked);
-        console.log(`Checkbox toggled ${initiallyChecked} → ${afterFirst} ✓`);
+        await expect(checkbox).toBeChecked({ checked: !initiallyChecked });
+        console.log(`Checkbox toggled ${initiallyChecked} → ${!initiallyChecked} ✓`);
 
         // Toggle back
         await checkbox.evaluate(el => {
             const label = el.closest('label') || el.parentElement;
             if (label) label.click();
         });
-        await this.page.waitForTimeout(300);
-
-        const afterSecond = await checkbox.evaluate(el => el.checked).catch(() => false);
-        expect(afterSecond).toBe(initiallyChecked);
+        await expect(checkbox).toBeChecked({ checked: initiallyChecked });
         console.log('Checkbox toggled back ✓');
     }
 
@@ -176,12 +186,12 @@ export class TicketingPage {
             .first()
             .or(this.page.getByRole('button', { name: /close/i }).last());
 
-        if (await closeBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+        if (await closeBtn.isVisible()) {
             await closeBtn.click();
         } else {
             await this.page.keyboard.press('Escape');
         }
-        await this.page.waitForTimeout(400);
+        await expect(closeBtn).toBeHidden({ timeout: 5000 });
         console.log('"Show all ticket types" window closed');
     }
 
@@ -245,7 +255,8 @@ export class TicketingPage {
 
         await addBtn.waitFor({ state: 'visible', timeout: 8000 });
         await addBtn.click();
-        await this.page.waitForTimeout(500);
+        await expect(this.page.locator('input[type="number"]').first()
+            .or(this.page.locator('[contenteditable="true"]').first())).toBeVisible({ timeout: 10000 });
         console.log('Add Sales Target button clicked');
     }
 
@@ -263,7 +274,7 @@ export class TicketingPage {
 
         const isContentEditable = await quantityInput.evaluate(
             el => el.getAttribute('contenteditable') !== null
-        ).catch(() => false);
+        );
 
         if (isContentEditable) {
             await quantityInput.click({ clickCount: 3 });
@@ -276,7 +287,6 @@ export class TicketingPage {
         await this.page.getByRole('button', { name: /next/i })
             .first()
             .click();
-        await this.page.waitForTimeout(500);
 
         // ── Step 2: enter name and save ─────────────────────────────────────────
         const nameInput = this.page.getByPlaceholder(/name/i).first()
@@ -293,7 +303,7 @@ export class TicketingPage {
             .first()
             .click();
 
-        await this.page.waitForTimeout(800);
+        await expect(this.page.getByText(name, { exact: true }).first()).toBeVisible({ timeout: 15000 });
         console.log(`Sales target "${name}" (${quantity}) created ✓`);
     }
 
@@ -315,7 +325,7 @@ export class TicketingPage {
 
         await editBtn.waitFor({ state: 'visible', timeout: 10000 });
         await editBtn.click();
-        await this.page.waitForTimeout(500);
+        await expect(this.page.getByRole('button', { name: /^cancel$/i }).first()).toBeVisible({ timeout: 8000 });
         console.log('Edit button clicked on first sales target');
     }
 
@@ -323,12 +333,12 @@ export class TicketingPage {
     async closeSalesTargetModal() {
         // The modal has a "Cancel" button at the bottom
         const cancelBtn = this.page.getByRole('button', { name: /^cancel$/i }).first();
-        if (await cancelBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+        if (await cancelBtn.isVisible()) {
             await cancelBtn.click();
         } else {
             await this.page.keyboard.press('Escape');
         }
-        await this.page.waitForTimeout(400);
+        await expect(cancelBtn).toBeHidden({ timeout: 5000 });
         console.log('Sales target modal closed');
     }
 
@@ -390,7 +400,6 @@ export class TicketingPage {
      */
     async hoverChartAnnotationButton() {
         await this.page.getByTitle('Enable annotation mode').hover();
-        await this.page.waitForTimeout(600);
         console.log('Hovered over chart annotation "+" button');
     }
 
@@ -400,8 +409,10 @@ export class TicketingPage {
      * @param {string} comment  Annotation comment text
      */
     async addChartAnnotation(comment = 'Test annotation') {
-        await this.page.getByTitle('Enable annotation mode').click();
-        await this.page.waitForTimeout(400);
+        const enableBtn = this.page.getByTitle('Enable annotation mode');
+        const disableBtn = this.page.getByTitle('Disable annotation mode');
+        await enableBtn.click();
+        await expect(disableBtn).toBeVisible({ timeout: 5000 });
 
         // Click a point on the chart canvas (horizontal centre, 60 % height)
         const canvas = this.page.locator('canvas').first();
@@ -414,27 +425,22 @@ export class TicketingPage {
                 box.y + box.height * 0.6
             );
         }
-        await this.page.waitForTimeout(600);
 
         // "Add Annotation" dialog appears — placeholder is "e.g., Important milestone"
         const commentInput = this.page.getByPlaceholder(/milestone|comment|annotation|note/i).first()
             .or(this.page.locator('input, textarea').filter({ visible: true }).last());
 
-        if (await commentInput.isVisible({ timeout: 3000 }).catch(() => false)) {
-            await commentInput.fill(comment);
-            const addBtn = this.page.getByRole('button', { name: /^add$/i }).first();
-            if (await addBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-                await addBtn.click();
-            }
-        }
-
-        await this.page.waitForTimeout(500);
+        await expect(commentInput).toBeVisible({ timeout: 5000 });
+        await commentInput.fill(comment);
+        const addBtn = this.page.getByRole('button', { name: /^add$/i }).first();
+        await expect(addBtn).toBeEnabled();
+        await addBtn.click();
+        await expect(commentInput).toBeHidden({ timeout: 10000 });
 
         // Exit annotation mode so that clicking a dot opens "Remove" (not a new annotation)
-        const disableBtn = this.page.getByTitle('Disable annotation mode');
-        if (await disableBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
+        if (await disableBtn.isVisible()) {
             await disableBtn.click();
-            await this.page.waitForTimeout(300);
+            await expect(this.page.getByTitle('Enable annotation mode')).toBeVisible();
         }
 
         console.log(`Chart annotation "${comment}" added ✓`);
@@ -447,7 +453,7 @@ export class TicketingPage {
         this._annotationDotPos = pos; // Cache for removeChartAnnotation
         // The scan clicked the dot and opened the Remove dialog — dismiss it
         await this.page.keyboard.press('Escape');
-        await this.page.waitForTimeout(300);
+        await expect(this.page.getByText('Remove Annotation', { exact: false })).toBeHidden();
         console.log(`Chart annotation "${name}" dot found at (${Math.round(pos.x)}, ${Math.round(pos.y)}) ✓`);
     }
 
@@ -468,13 +474,11 @@ export class TicketingPage {
             const box = await canvas.boundingBox();
             if (box) await this.page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.6);
         }
-        await this.page.waitForTimeout(400);
-
         // "Remove Annotation" confirmation dialog
         const removeBtn = this.page.getByRole('button', { name: /^Remove$/i }).last();
         await removeBtn.waitFor({ state: 'visible', timeout: 5000 });
         await removeBtn.click();
-        await this.page.waitForTimeout(400);
+        await expect(this.page.getByText('Remove Annotation', { exact: false })).toBeHidden();
         console.log(`Chart annotation "${name}" removed ✓`);
     }
 
@@ -500,8 +504,9 @@ export class TicketingPage {
                 const x = cx + dx;
                 const y = cy + dy;
                 await this.page.mouse.click(x, y);
+                // Canvas hit testing has no DOM event to await; allow the canvas click handler to render its dialog.
                 await this.page.waitForTimeout(200);
-                if (await removeDialog.isVisible({ timeout: 200 }).catch(() => false)) {
+                if (await removeDialog.isVisible()) {
                     return { x, y };
                 }
             }
@@ -539,7 +544,8 @@ export class TicketingPage {
             .or(this.page.getByText('Log ticket transaction', { exact: false }).first())
             .first()
             .click();
-        await this.page.waitForTimeout(500);
+        await expect(this.page.getByRole('button', { name: /create.*transaction/i }).first())
+            .toBeVisible({ timeout: 8000 });
         console.log('"Log ticket transaction" clicked');
     }
 
@@ -558,7 +564,6 @@ export class TicketingPage {
             .or(this.page.getByText('+Add Transaction', { exact: false }).first())
             .first()
             .click();
-        await this.page.waitForTimeout(600);
 
         // 2. Select ticket type
         const ticketTypeSelect = this.page.locator('select').first();
@@ -570,17 +575,15 @@ export class TicketingPage {
             // First non-placeholder option
             await ticketTypeSelect.selectOption({ index: 1 });
         }
-        await this.page.waitForTimeout(400);
 
         // 3. Select a ticket seller (second select on the form)
         const sellerSelect = this.page.locator('select').nth(1);
-        if (await sellerSelect.isVisible({ timeout: 3000 }).catch(() => false)) {
+        if (await sellerSelect.isVisible()) {
             if (seller) {
                 await sellerSelect.selectOption({ label: seller });
             } else {
                 await sellerSelect.selectOption({ index: 1 });
             }
-            await this.page.waitForTimeout(300);
         }
 
         // 4. Set quantity
@@ -588,7 +591,7 @@ export class TicketingPage {
         await quantityInput.waitFor({ state: 'visible', timeout: 5000 });
         await quantityInput.click({ clickCount: 3 });
         await quantityInput.fill(quantity.toString());
-        await this.page.waitForTimeout(200);
+        await expect(quantityInput).toHaveValue(quantity.toString());
 
         // 5. Set date — default to today
         const today = date || (() => {
@@ -602,21 +605,22 @@ export class TicketingPage {
         const dateInput = this.page.locator('input[type="date"]').first()
             .or(this.page.locator('input[placeholder*="date" i]').first());
 
-        if (await dateInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+        if (await dateInput.isVisible()) {
             // input[type="date"] expects yyyy-mm-dd
             const isoDate = today.includes('-')
                 ? today
                 : today.split('/').reverse().join('-'); // dd/mm/yyyy → yyyy-mm-dd
             await dateInput.fill(isoDate);
+            await expect(dateInput).toHaveValue(isoDate);
         }
-        await this.page.waitForTimeout(300);
 
         // 6. Create Transaction
         await this.page.getByRole('button', { name: /create.*transaction/i })
             .first()
             .click();
 
-        await this.page.waitForTimeout(1000);
+        await expect(this.page.getByRole('button', { name: /create.*transaction/i }).first())
+            .toBeHidden({ timeout: 15000 });
         console.log(
             `Transaction added — type: ${ticketType ?? 'first'}, qty: ${quantity}, date: ${today} ✓`
         );
@@ -664,8 +668,9 @@ export class TicketingPage {
 
         for (let i = 0; i < count; i++) {
             await expandBtns.nth(i).click();
-            await this.page.waitForTimeout(300);
         }
+        await expect(this.page.getByText('Direct Sales', { exact: true }).first())
+            .toBeVisible({ timeout: 10000 });
         console.log(`${count} ticket type(s) expanded ✓`);
     }
 
@@ -748,8 +753,8 @@ export class TicketingPage {
         try {
             const targetCount = typeof count === 'number' ? count : 50;
 
-            await this.goToBulkEntry().catch(() => null);
-            await this.expandAllBulkEntries().catch(() => null);
+            await this.goToBulkEntry();
+            await this.expandAllBulkEntries();
 
             // Use page.evaluate to locate header index and set the input value
             const result = await this.page.evaluate(async ({ ticketName, targetCount }) => {
@@ -830,8 +835,8 @@ export class TicketingPage {
                 throw new Error(`Failed to set Sold value (${result?.reason || 'unknown'})`);
             }
 
-            // Small wait to allow any reactive updates to apply
-            await this.page.waitForTimeout(600);
+            await expect(this.page.getByText('Some of the data on this page has been changed', { exact: false }))
+                .toBeVisible({ timeout: 10000 });
             console.log(`${ticketName} → Sold set to ${count ?? 50} ✓`);
         } catch (err) {
             console.error(`editSoldCount failed for "${ticketName}": ${err.message}`);
@@ -864,7 +869,6 @@ export class TicketingPage {
     async exportTicketData(seller = 'Direct Sales') {
         // Open the export dialog
         await this.page.getByRole('button', { name: /export data/i }).first().click();
-        await this.page.waitForTimeout(500);
         console.log('"Export Data" button clicked');
 
         // Wait for the "Export Ticket Data" heading to confirm dialog is open
@@ -880,8 +884,9 @@ export class TicketingPage {
         console.log(`Seller "${seller}" selected ✓`);
 
         // Click the Export Data button (second match — first is the toolbar button we already clicked)
+        const download = this.page.waitForEvent('download', { timeout: 30000 });
         await this.page.getByRole('button', { name: /export data/i }).last().click();
-        await this.page.waitForTimeout(1000);
+        await download;
         console.log('Export Data submitted ✓');
     }
 
@@ -891,7 +896,7 @@ export class TicketingPage {
         await this.page.getByRole('button', { name: /Import Data/i })
             .waitFor({ state: 'visible', timeout: 10000 });
         await this.page.getByRole('button', { name: /import data/i }).first().click();
-        await this.page.waitForTimeout(500);
+        await expect(this.page.getByText('Import Ticket Data', { exact: false }).first()).toBeVisible({ timeout: 10000 });
         console.log('"Import Data" button clicked');
     }
 
@@ -921,7 +926,8 @@ export class TicketingPage {
             this.page.getByText('Drop a file here or click to upload', { exact: false }).first().click(),
         ]);
         await fileChooser.setFiles(resolve(filePath));
-        await this.page.waitForTimeout(500);
+        await expect(this.page.getByRole('button', { name: /validate.*import/i }).first())
+            .toBeEnabled({ timeout: 15000 });
         console.log(`Template attached: ${resolve(filePath)} ✓`);
     }
 
@@ -946,10 +952,10 @@ export class TicketingPage {
         // Use evaluate to read the real DOM .checked property — Playwright's isChecked()
         // can return false for hidden Vue custom checkboxes even when visually preselected,
         // which would cause a label click to toggle the checkbox OFF instead of leaving it ON.
-        const isActuallyChecked = await checkbox.evaluate(el => el.checked).catch(() => false);
+        const isActuallyChecked = await checkbox.evaluate(el => el.checked);
         if (!isActuallyChecked) {
             await label.click();
-            await this.page.waitForTimeout(300);
+            await expect.poll(() => checkbox.evaluate(el => el.checked)).toBe(true);
         }
         console.log('"Replace existing sales" is checked ✓');
     }
@@ -959,14 +965,13 @@ export class TicketingPage {
         await this.page.getByRole('button', { name: /validate.*import/i })
             .first()
             .click();
-        await this.page.waitForTimeout(1000);
         console.log('"Validate and Import Data" clicked');
 
         // Confirm the "Are you sure?" dialog
         const okBtn = this.page.getByRole('button', { name: /^ok$/i });
         await okBtn.waitFor({ state: 'visible', timeout: 8000 });
         await okBtn.click();
-        await this.page.waitForTimeout(1000);
+        await expect(this.page.getByText('Data imported', { exact: false })).toBeVisible({ timeout: 30000 });
         console.log('"Are you sure?" confirmed ✓');
     }
 
@@ -1034,7 +1039,8 @@ export class TicketingPage {
         const menuBtn = sellerRow.locator('button').last();
         await menuBtn.waitFor({ state: 'visible', timeout: 8000 });
         await menuBtn.click();
-        await this.page.waitForTimeout(400);
+        await expect(this.page.getByText('View Bank Transactions', { exact: false }).last())
+            .toBeVisible({ timeout: 5000 });
         console.log(`Three-lines menu opened for "${ticketName}" ✓`);
     }
 
@@ -1052,7 +1058,8 @@ export class TicketingPage {
         const menuBtn = sellerRow.locator('button').last();
         await menuBtn.waitFor({ state: 'visible', timeout: 8000 });
         await menuBtn.click();
-        await this.page.waitForTimeout(400);
+        await expect(this.page.getByText('View Bank Transactions', { exact: false }).last())
+            .toBeVisible({ timeout: 5000 });
         console.log('Three-lines menu opened for first ticket row ✓');
     }
 
@@ -1064,7 +1071,7 @@ export class TicketingPage {
             .filter({ hasText: /View Bank Transactions?/i })
             .last()
             .click();
-        await this.page.waitForTimeout(600);
+        await expect(this.page.getByText('From', { exact: true }).first()).toBeVisible({ timeout: 10000 });
         console.log('"View Bank Transactions" selected ✓');
     }
 
@@ -1096,7 +1103,6 @@ export class TicketingPage {
             .filter({ hasText: /Add Bank Transaction/i })
             .last()
             .click();
-        await this.page.waitForTimeout(600);
 
         // Scope everything to the modal to avoid matching background page inputs
         const modal = this.page.locator('#createBankTransactionModal');
@@ -1129,7 +1135,7 @@ export class TicketingPage {
 
         // "Add Transaction" button
         await modal.getByRole('button', { name: /Add Transaction/i }).click();
-        await this.page.waitForTimeout(800);
+        await expect(modal).toBeHidden({ timeout: 15000 });
         console.log('Bank transaction added ✓');
     }
 
@@ -1139,7 +1145,8 @@ export class TicketingPage {
             .filter({ hasText: /Add Ticket Transaction/i })
             .last()
             .click();
-        await this.page.waitForTimeout(600);
+        await expect(this.page.getByRole('button', { name: /create.*transaction/i }).first())
+            .toBeVisible({ timeout: 10000 });
         console.log('"Add Ticket Transaction" selected from menu ✓');
     }
 
@@ -1149,14 +1156,13 @@ export class TicketingPage {
             .filter({ hasText: /Delete Ticket Sale/i })
             .last()
             .click();
-        await this.page.waitForTimeout(400);
 
         // Confirm deletion dialog if it appears
         const confirmBtn = this.page.getByRole('button', { name: /confirm|yes|delete/i }).first();
-        if (await confirmBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+        if (await confirmBtn.isVisible()) {
             await confirmBtn.click();
+            await expect(confirmBtn).toBeHidden({ timeout: 10000 });
         }
-        await this.page.waitForTimeout(600);
         console.log('Ticket sale deleted ✓');
     }
 
@@ -1167,7 +1173,8 @@ export class TicketingPage {
         const expandBtn = this.page.getByRole('button', { name: /expand all/i }).first();
         await expandBtn.waitFor({ state: 'visible', timeout: 8000 });
         await expandBtn.click();
-        await this.page.waitForTimeout(500);
+        await expect(this.page.getByText('Direct Sales', { exact: true }).first())
+            .toBeVisible({ timeout: 10000 });
         console.log('First ticket type row expanded ✓');
     }
 
@@ -1201,7 +1208,8 @@ export class TicketingPage {
         });
         await this.page.keyboard.type(soldValue.toString(), { delay: 30 });
         await this.page.keyboard.press('Tab');
-        await this.page.waitForTimeout(800);
+        await expect(this.page.getByText('Some of the data on this page has been changed', { exact: false }))
+            .toBeVisible({ timeout: 10000 });
         console.log(`Available=${available}; Sold set to ${soldValue} ✓`);
     }
 
@@ -1228,9 +1236,8 @@ export class TicketingPage {
      */
     async deleteTicketTypes(eventBaseUrl, name) {
         await this.page.goto(`${eventBaseUrl.replace(/\/$/, '')}/tickets/bulk`, { waitUntil: 'domcontentloaded' });
-        await this.page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
         await this.page.getByRole('button', { name: /expand all/i }).first()
-            .waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
+            .waitFor({ state: 'visible', timeout: 30000 });
         // Hovering the left edge opens the sidebar over the ticket names — park the mouse.
         await this.page.mouse.move(1000, 600);
 
@@ -1247,7 +1254,11 @@ export class TicketingPage {
             await row.locator('button').filter({ has: this.page.locator('i.mdi-dots-horizontal') }).click();
             await this.page.getByText('Delete Ticket Type', { exact: true }).click();
             const confirm = this.page.getByRole('button', { name: /^(Yes, I'm sure|Yes|Delete|Confirm|OK)$/i }).last();
-            if (await confirm.isVisible({ timeout: 3000 }).catch(() => false)) await confirm.click();
+            // Some pages delete immediately; confirm only when the application presents a prompt.
+            if (await confirm.isVisible()) {
+                await confirm.click();
+                await expect(confirm).toBeHidden({ timeout: 10000 });
+            }
             await expect(names()).toHaveCount(before - 1, { timeout: 15000 });
         }
         if (deleted.length) console.log(`🗑️ Ticket type(s) deleted: ${deleted.join(', ')}`);
