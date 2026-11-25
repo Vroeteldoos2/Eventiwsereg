@@ -14,8 +14,8 @@ const cell = (row, index) => row.locator('td').nth(index).innerText().then(t => 
 const money = text => parseFloat(String(text).replace(/[^\d.-]/g, ''));
 
 async function settle(page) {
-    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
-    await page.waitForTimeout(1500);
+    await expect(page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 15000 });
+    await expect(rows(page).first()).toBeVisible({ timeout: 15000 });
 }
 
 async function open(page, path, tabName) {
