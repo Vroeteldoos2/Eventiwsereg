@@ -14,6 +14,7 @@ import { TicketsPage } from '../../pages/ticketingTicketsPage.js';
 import { TicketingDashboardPage } from '../../pages/ticketingDashboardPage.js';
 import { TransactionsPage } from '../../pages/ticketingTransactionsPage.js';
 import { parseCsv, readCsvRecords, readXlsx } from '../utils/spreadsheet.js';
+import { cleanupWithWarning } from '../utils/test-helpers.js';
 
 const IMPORT_TEMPLATE = './fixtures/ticket-import-template.csv';
 
@@ -34,11 +35,8 @@ test.describe('Ticketing Tickets page', () => {
     let tickets;
 
     async function cleanupBankTransactionTest(name) {
-        try {
-            await tickets.deleteTestBankTransactions(name);
-        } finally {
-            await tickets.deleteTestTickets();
-        }
+        await cleanupWithWarning(`bank transactions for ${name}`, () => tickets.deleteTestBankTransactions(name));
+        await cleanupWithWarning(`ticket ${name}`, () => tickets.deleteTestTickets());
     }
 
     test.beforeEach(async ({ page }) => {
@@ -159,7 +157,7 @@ test.describe('Ticketing Tickets page', () => {
                 expect(row.available, 'The ticket shows the new Available figure').toBe(edits.available);
             });
         } finally {
-            await tickets.deleteTestTickets();
+            await cleanupWithWarning('test tickets', () => tickets.deleteTestTickets());
         }
     });
 
@@ -197,12 +195,14 @@ test.describe('Ticketing Tickets page', () => {
             });
         } finally {
             // Put the original figure back.
-            await reopen();
-            const current = (await tickets.readSalesChannels()).find(c => c.ticket === channel.ticket && c.supplier === channel.supplier);
-            if (current.sold !== original) {
-                await tickets.setChannelValue(channel.ticket, channel.supplier, 'sold', original);
-                await tickets.saveChanges();
-            }
+            await cleanupWithWarning(`Sold value for ${channel.ticket}`, async () => {
+                await reopen();
+                const current = (await tickets.readSalesChannels()).find(c => c.ticket === channel.ticket && c.supplier === channel.supplier);
+                if (current.sold !== original) {
+                    await tickets.setChannelValue(channel.ticket, channel.supplier, 'sold', original);
+                    await tickets.saveChanges();
+                }
+            });
         }
         await reopen();
         expect((await tickets.readSalesChannels()).find(c => c.ticket === channel.ticket && c.supplier === channel.supplier).sold,
@@ -357,7 +357,7 @@ test.describe('Ticketing Tickets page', () => {
             expect(listed[0].date, 'Date').toMatch(/^[A-Z][a-z]{2} \d{1,2}, \d{4}, \d{1,2}:\d{2} [AP]M$/);
             await expect(dialog.locator('tbody tr').first().locator('button'), 'An action is available on the row').toHaveCount(1);
         } finally {
-            await cleanupBankTransactionTest(name);
+            await cleanupWithWarning(`bank transaction test ${name}`, () => cleanupBankTransactionTest(name));
         }
     });
 
@@ -378,7 +378,7 @@ test.describe('Ticketing Tickets page', () => {
             await dismissOptionalAlert(page);
             await expect(dialog.locator('tbody tr'), 'The bank transaction is removed from the list').toHaveCount(0, { timeout: 8000 });
         } finally {
-            await cleanupBankTransactionTest(name);
+            await cleanupWithWarning(`bank transaction test ${name}`, () => cleanupBankTransactionTest(name));
         }
     });
 
@@ -404,7 +404,7 @@ test.describe('Ticketing Tickets page', () => {
             await tickets.expandAll();
             expect((await tickets.readSalesChannels()).filter(channel => channel.ticket === name), 'Still gone after a reload').toHaveLength(0);
         } finally {
-            await tickets.deleteTestTickets();
+            await cleanupWithWarning('test tickets', () => tickets.deleteTestTickets());
         }
     });
 });

@@ -1,4 +1,5 @@
 import { test, expect } from '../../fixtures/baseTest.js';
+import { cleanupWithWarning } from '../utils/test-helpers.js';
 import { setupBudgetingTest } from '../utils/setup.js';
 
 test.describe('Department Budget', () => {
@@ -53,12 +54,14 @@ test.describe('Department Budget', () => {
             const revisitedField = await openDepartmentSummary();
             await expect(revisitedField).toContainText('9,876.00', { timeout: 15000 });
         } finally {
-            const fieldToRestore = await openDepartmentSummary();
-            await setDepartmentBudget(fieldToRestore, originalBudget ?? 0);
+            await cleanupWithWarning('department budget', async () => {
+                const fieldToRestore = await openDepartmentSummary();
+                await setDepartmentBudget(fieldToRestore, originalBudget ?? 0);
 
-            if (originalBudget === null) {
-                await expect(fieldToRestore).toContainText('Add', { timeout: 15000 });
-            }
+                if (originalBudget === null) {
+                    await expect(fieldToRestore).toContainText('Add', { timeout: 15000 });
+                }
+            });
         }
     });
 });

@@ -11,6 +11,7 @@
 // PO, entry) unless INVOICE_CLEANUP=0. Runs against INVOICE_EVENT_URL (falls back to BUDGET_EVENT_URL);
 // scripts/fullRegression.js points it at the newly created regression event.
 import { test, expect } from '../../fixtures/baseTest.js';
+import { cleanupWithWarning } from '../utils/test-helpers.js';
 
 const EVENT_URL = (process.env.INVOICE_EVENT_URL || process.env.BUDGET_EVENT_URL || '').replace(/\/$/, '');
 // A PO is only created automatically on approval for some subcategories (e.g. "Artist Fees" gets none).
@@ -195,7 +196,7 @@ test.describe('Purchase supplier invoices', () => {
         const titles = createdEntries.splice(0);
         if (!CLEANUP) return;
         for (const title of titles) {
-            await budgetingPage.deleteEntryWithPurchaseOrder(title);
+            await cleanupWithWarning(`budget entry ${title}`, () => budgetingPage.deleteEntryWithPurchaseOrder(title));
         }
     });
 

@@ -9,6 +9,7 @@
 // "AutoPayrun_<n>" payrun behind. Runs against PURCHASING_EVENT_URL (falls back to INVOICE_EVENT_URL / BUDGET_EVENT_URL);
 // scripts/fullRegression.js points it at the newly created regression event.
 import { test, expect } from '../../fixtures/baseTest.js';
+import { cleanupWithWarning } from '../utils/test-helpers.js';
 
 const EVENT_URL = (process.env.PURCHASING_EVENT_URL || process.env.INVOICE_EVENT_URL || process.env.BUDGET_EVENT_URL || '').replace(/\/$/, '');
 // A PO is only created automatically on approval for some subcategories (e.g. "Artist Fees" gets none).
@@ -110,7 +111,7 @@ test.describe('Purchasing', () => {
         const titles = createdEntries.splice(0);
         if (!CLEANUP) return;
         for (const title of titles) {
-            await budgetingPage.deleteEntryWithPurchaseOrder(title);
+            await cleanupWithWarning(`budget entry ${title}`, () => budgetingPage.deleteEntryWithPurchaseOrder(title));
         }
     });
 
@@ -217,7 +218,7 @@ test.describe('Purchasing', () => {
                 near(rows.reduce((sum, subcategory) => sum + (subcategory.paid ?? 0), 0), withPaid.paid, 'Sum of subcategory Paid');
                 expect(withPaid.paid, 'Paid cannot exceed Invoiced').toBeLessThanOrEqual(withPaid.invoiced + 0.005);
             } finally {
-                await purchasingPage.setColumn('Paid', wasShown);
+                await cleanupWithWarning('Paid column visibility', () => purchasingPage.setColumn('Paid', wasShown));
             }
         });
     });
@@ -293,11 +294,13 @@ test.describe('Purchasing', () => {
             });
         } finally {
             if (created) {
-                await purchasingPage.gotoPurchasingSummary();
-                await purchasingPage.departmentRow(department.name).click();
-                await waitForPurchaseOrders();
-                await page.locator('tr').filter({ hasText: title }).last().locator('button').last().click();
-                await purchasingPage.deleteOpenDraftPurchaseOrder();
+                await cleanupWithWarning(`purchase order ${title}`, async () => {
+                    await purchasingPage.gotoPurchasingSummary();
+                    await purchasingPage.departmentRow(department.name).click();
+                    await waitForPurchaseOrders();
+                    await page.locator('tr').filter({ hasText: title }).last().locator('button').last().click();
+                    await purchasingPage.deleteOpenDraftPurchaseOrder();
+                });
             }
         }
     });

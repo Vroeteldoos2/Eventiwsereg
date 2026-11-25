@@ -10,6 +10,7 @@
 // The entry is deleted afterwards so existing entries are never touched.
 import { test, expect } from '../../fixtures/baseTest.js';
 import { setupBudgetingTest } from '../utils/setup.js';
+import { cleanupWithWarning } from '../utils/test-helpers.js';
 
 const STREAM = process.env.PPH_STREAM || 'Bar';
 const TICKET_TYPES = (process.env.PPH_TICKET_TYPES || 'Main,EarlyBird').split(',').map(s => s.trim()).filter(Boolean);
@@ -123,8 +124,10 @@ test.describe('Budgeting - Price Per Head Configuration', () => {
                 await verify(ticketTypes.slice(0, 1), ATTRITION);
             });
         } finally {
-            await openConfig();
-            await budgetingPage.deletePricePerHeadEntries(ENTRY.name);
+            await cleanupWithWarning(`price-per-head entry ${ENTRY.name}`, async () => {
+                await openConfig();
+                await budgetingPage.deletePricePerHeadEntries(ENTRY.name);
+            });
         }
     });
 });

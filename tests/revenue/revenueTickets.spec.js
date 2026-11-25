@@ -7,6 +7,7 @@
 //     Tickets and Ticket Sellers tabs (the ticket is deleted again afterwards)
 // Runs against REVENUE_TICKETS_EVENT_URL (an open event).
 import { test, expect } from '../../fixtures/baseTest.js';
+import { cleanupWithWarning } from '../utils/test-helpers.js';
 
 const EVENT_URL = (process.env.REVENUE_TICKETS_EVENT_URL || process.env.BUDGET_EVENT_URL || '').replace(/\/$/, '');
 const TICKET_PREFIX = 'AutoTicket_';
@@ -66,7 +67,7 @@ test.describe('Revenue - Tickets stream', () => {
                 figures[mode] = byName(await revenuePage.readTicketsTable());
             }
         } finally {
-            await revenuePage.selectTicketMode(original);
+            await cleanupWithWarning('ticket mode', () => revenuePage.selectTicketMode(original));
         }
         for (const [name, combined] of Object.entries(figures['Combined'])) {
             for (const key of ['Budgeted Net', 'Budgeted Gross']) {
@@ -211,7 +212,7 @@ test.describe('Revenue - Tickets stream', () => {
 
             expect(consoleErrors, 'No console errors').toEqual([]);
         } finally {
-            await ticketingPage.deleteTicketTypes(EVENT_URL, ticket.name);
+            await cleanupWithWarning(`ticket ${ticket.name}`, () => ticketingPage.deleteTicketTypes(EVENT_URL, ticket.name));
         }
     });
 });

@@ -2,6 +2,7 @@ import { test, expect } from '../fixtures/baseTest.js';
 import { regressionAccountName } from '../pages/accountConfig.js';
 import { LoginPage } from '../pages/loginPage.js';
 import { BASE_URL } from '../pages/env.js';
+import { cleanupWithWarning } from './utils/test-helpers.js';
 
 test('Login with configured credentials @smoke', async ({ browser }) => {
     const context = await browser.newContext();
@@ -12,6 +13,6 @@ test('Login with configured credentials @smoke', async ({ browser }) => {
         await loginPage.login();
         await expect(page.getByRole('button', { name: regressionAccountName })).toBeVisible();
     } finally {
-        await context.close();
+        await cleanupWithWarning('browser context', () => context.close());
     }
 });

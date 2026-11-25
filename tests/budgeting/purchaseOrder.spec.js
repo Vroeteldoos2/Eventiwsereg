@@ -1,4 +1,5 @@
 import { test, expect } from '../../fixtures/baseTest.js';
+import { cleanupWithWarning } from '../utils/test-helpers.js';
 import { setupBudgetingTest } from '../utils/setup.js';
 
 const QA_EMAIL = process.env.QA_EMAIL?.trim() || '';
@@ -24,7 +25,7 @@ test.describe('Purchase Order', () => {
 
     test.afterEach(async () => {
         for (const title of [...new Set(createdEntryTitles)].reverse()) {
-            await budgetingPage.deleteEntryWithPurchaseOrder(title);
+            await cleanupWithWarning(`budget entry ${title}`, () => budgetingPage.deleteEntryWithPurchaseOrder(title));
         }
     });
 

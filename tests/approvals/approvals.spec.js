@@ -9,6 +9,7 @@
 // rejected other than that entry.
 import { test, expect } from '../../fixtures/baseTest.js';
 import { ApprovalsPage, APPROVAL_SECTIONS } from '../../pages/approvalsPage.js';
+import { cleanupWithWarning } from '../utils/test-helpers.js';
 
 const EVENT_URL = (process.env.APPROVALS_EVENT_URL || process.env.PURCHASING_EVENT_URL || process.env.INVOICE_EVENT_URL || process.env.BUDGET_EVENT_URL || '').replace(/\/$/, '');
 const ACCOUNT_URL = EVENT_URL.replace(/\/event\/\d+$/, '');
@@ -36,7 +37,7 @@ test.describe('Approvals', () => {
         const titles = createdEntries.splice(0);
         if (!CLEANUP) return;
         for (const title of titles) {
-            await budgetingPage.deleteEntryWithPurchaseOrder(title);
+            await cleanupWithWarning(`budget entry ${title}`, () => budgetingPage.deleteEntryWithPurchaseOrder(title));
         }
     });
 

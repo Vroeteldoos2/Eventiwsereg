@@ -6,6 +6,7 @@
 //     Actual / Variance / Invoiced / Outstanding columns add up
 // Read-only — runs against BVA_EVENT_URL (falls back to BUDGET_EVENT_URL).
 import { test, expect } from '../../fixtures/baseTest.js';
+import { cleanupWithWarning } from '../utils/test-helpers.js';
 
 const EVENT_URL = (process.env.BVA_EVENT_URL || process.env.BUDGET_EVENT_URL || '').replace(/\/$/, '');
 const SECTIONS = [
@@ -77,7 +78,7 @@ test.describe('Budget v Actuals', () => {
         try {
             for (const section of SECTIONS) budget[section.name] = await budgetingPage.getSectionFigures(section.name);
         } finally {
-            await budgetingPage.setCustomColumns(previousColumns);
+            await cleanupWithWarning('Budget Summary columns', () => budgetingPage.setCustomColumns(previousColumns));
         }
         expect(budget['Cost Departments'].header, 'Markup Amount column shown on the Budget page').toHaveProperty('markup amount');
 

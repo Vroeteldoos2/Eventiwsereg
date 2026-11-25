@@ -11,6 +11,7 @@
 // any invoice first). Runs against REVENUE_EVENT_URL — scripts/fullRegression.js points
 // it at the newly created regression event.
 import { test, expect } from '../../fixtures/baseTest.js';
+import { cleanupWithWarning } from '../utils/test-helpers.js';
 import { readFile } from 'node:fs/promises';
 import { readPdfText } from '../utils/pdf.js';
 
@@ -50,7 +51,7 @@ test.describe('Revenue - entries and customer invoices', () => {
     });
 
     test.afterEach(async ({ revenuePage }) => {
-        await revenuePage.deleteRevenueEntries(STREAM, new RegExp(`^${ENTRY_PREFIX}\\d+$`));
+        await cleanupWithWarning('revenue entries', () => revenuePage.deleteRevenueEntries(STREAM, new RegExp(`^${ENTRY_PREFIX}\\d+$`)));
     });
 
     test('Revenue stream totals match the Budgeting page', async ({ revenuePage, budgetingPage }) => {
@@ -65,7 +66,7 @@ test.describe('Revenue - entries and customer invoices', () => {
         try {
             budget = await budgetingPage.getSectionFigures('Revenue Streams');
         } finally {
-            await budgetingPage.setCustomColumns(previousColumns);
+            await cleanupWithWarning('Budget Summary columns', () => budgetingPage.setCustomColumns(previousColumns));
         }
 
         expect(Object.keys(revenue.rows).sort(), 'Same revenue streams on both pages').toEqual(Object.keys(budget.rows).sort());

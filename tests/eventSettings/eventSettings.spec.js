@@ -11,6 +11,7 @@
 // reading the emails the reports send — only the confirmation messages and notifications are checked.
 import { test, expect } from '../../fixtures/baseTest.js';
 import { EventSettingsPage } from '../../pages/eventSettingsPage.js';
+import { cleanupWithWarning } from '../utils/test-helpers.js';
 
 const EVENT_URL = (process.env.EVENT_SETTINGS_TEST_EVENT_URL || process.env.PURCHASING_EVENT_URL || process.env.INVOICE_EVENT_URL || '').replace(/\/$/, '');
 
@@ -50,14 +51,16 @@ test.describe('Event Settings', () => {
             await expect(settings.cityInput).toHaveValue(`AutoCity${suffix}`);
             await expect(page.getByText(`${original.name}_${suffix}`).first(), 'New name shown on the page').toBeVisible();
         } finally {
-            await settings.setName(original.name);
-            await settings.addressLine2Input.fill(original.line2);
-            await settings.addressLine2Input.blur();
-            await settings.cityInput.fill(original.city);
-            await settings.cityInput.blur();
-            await settings.waitForChangesSaved();
-            await reload(page);
-            await expect(settings.nameInput, 'Name restored').toHaveValue(original.name);
+            await cleanupWithWarning('event details', async () => {
+                await settings.setName(original.name);
+                await settings.addressLine2Input.fill(original.line2);
+                await settings.addressLine2Input.blur();
+                await settings.cityInput.fill(original.city);
+                await settings.cityInput.blur();
+                await settings.waitForChangesSaved();
+                await reload(page);
+                await expect(settings.nameInput, 'Name restored').toHaveValue(original.name);
+            });
         }
     });
 
@@ -71,9 +74,11 @@ test.describe('Event Settings', () => {
                 await expect(page.getByText('Something went wrong'), 'No error').toHaveCount(0);
             }
         } finally {
-            await settings.setStatus(original);
-            await reload(page);
-            await expect(settings.statusSelect, 'Status restored').toHaveValue(original);
+            await cleanupWithWarning('event status', async () => {
+                await settings.setStatus(original);
+                await reload(page);
+                await expect(settings.statusSelect, 'Status restored').toHaveValue(original);
+            });
         }
     });
 
@@ -96,9 +101,11 @@ test.describe('Event Settings', () => {
             await reload(page);
             expect(Number(await settings.defaultMarkupInput.inputValue()), 'Default markup after reload').toBeCloseTo(7.5, 2);
         } finally {
-            await settings.setDefaultMarkup(original || '0');
-            await reload(page);
-            expect(Number(await settings.defaultMarkupInput.inputValue()), 'Default markup restored').toBeCloseTo(Number(original || 0), 2);
+            await cleanupWithWarning('default markup', async () => {
+                await settings.setDefaultMarkup(original || '0');
+                await reload(page);
+                expect(Number(await settings.defaultMarkupInput.inputValue()), 'Default markup restored').toBeCloseTo(Number(original || 0), 2);
+            });
         }
     });
 
@@ -121,9 +128,11 @@ test.describe('Event Settings', () => {
                 await expect(page.getByText('Something went wrong'), 'No error').toHaveCount(0);
             }
         } finally {
-            await settings.selectContingencyType(original);
-            await reload(page);
-            expect(await active(), 'Contingency type restored').toBe(original);
+            await cleanupWithWarning('contingency type', async () => {
+                await settings.selectContingencyType(original);
+                await reload(page);
+                expect(await active(), 'Contingency type restored').toBe(original);
+            });
         }
     });
 
@@ -153,11 +162,13 @@ test.describe('Event Settings', () => {
             await reload(page);
             expect(await current(), 'Tracking option after reload').toBe(chosen);
         } finally {
-            if (changed) {
-                await choose(original);
-                await reload(page);
-                expect(await current(), 'Tracking option restored').toBe(original);
-            }
+            await cleanupWithWarning('Xero tracking option', async () => {
+                if (changed) {
+                    await choose(original);
+                    await reload(page);
+                    expect(await current(), 'Tracking option restored').toBe(original);
+                }
+            });
         }
     });
 
@@ -172,13 +183,15 @@ test.describe('Event Settings', () => {
             await reload(page);
             await expect(tagsCard.getByText(tag, { exact: true }), 'Assigned tag shown under Tags').toBeVisible();
         } finally {
-            await settings.openAddTags();
-            const checkbox = settings.tagOption(tag).locator('input[type="checkbox"]');
-            if (await checkbox.isChecked()) await checkbox.uncheck();
-            await page.keyboard.press('Escape');
-            await settings.waitForChangesSaved();
-            await reload(page);
-            await expect(tagsCard.getByText(tag, { exact: true }), 'Tag removed again').toHaveCount(0);
+            await cleanupWithWarning(`event tag ${tag}`, async () => {
+                await settings.openAddTags();
+                const checkbox = settings.tagOption(tag).locator('input[type="checkbox"]');
+                if (await checkbox.isChecked()) await checkbox.uncheck();
+                await page.keyboard.press('Escape');
+                await settings.waitForChangesSaved();
+                await reload(page);
+                await expect(tagsCard.getByText(tag, { exact: true }), 'Tag removed again').toHaveCount(0);
+            });
         }
     });
 
@@ -220,11 +233,13 @@ test.describe('Event Settings', () => {
             expect(await checkbox().isChecked(), 'Unticked after reload').toBe(false);
             expect(await offered(), `${subcategory} is not offered once unticked`).not.toContain(subcategory);
         } finally {
-            await openSubcategories();
-            if (!await checkbox().isChecked()) await checkbox().check();
-            await settings.waitForChangesSaved();
-            await openSubcategories();
-            expect(await checkbox().isChecked(), `${subcategory} ticked again`).toBe(true);
+            await cleanupWithWarning(`subcategory ${subcategory}`, async () => {
+                await openSubcategories();
+                if (!await checkbox().isChecked()) await checkbox().check();
+                await settings.waitForChangesSaved();
+                await openSubcategories();
+                expect(await checkbox().isChecked(), `${subcategory} ticked again`).toBe(true);
+            });
         }
         expect(await offered(), `${subcategory} is offered again once ticked`).toContain(subcategory);
     });
@@ -271,14 +286,16 @@ test.describe('Event Settings', () => {
             const after = await state();
             for (const day of days) expect(after[day], `${day} after reload`).toBe(chosen.includes(day));
         } finally {
-            for (const day of days) {
-                if (await box(day).isChecked() !== original[day]) {
-                    await (original[day] ? box(day).check() : box(day).uncheck());
-                    await settings.waitForChangesSaved();
+            await cleanupWithWarning('daily report schedule', async () => {
+                for (const day of days) {
+                    if (await box(day).isChecked() !== original[day]) {
+                        await (original[day] ? box(day).check() : box(day).uncheck());
+                        await settings.waitForChangesSaved();
+                    }
                 }
-            }
-            await reopen();
-            expect(await state(), 'Schedule restored').toEqual(original);
+                await reopen();
+                expect(await state(), 'Schedule restored').toEqual(original);
+            });
         }
     });
 

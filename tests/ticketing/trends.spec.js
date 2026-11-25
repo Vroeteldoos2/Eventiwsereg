@@ -11,6 +11,7 @@
 import { test, expect } from '../../fixtures/baseTest.js';
 import { TicketingPage, getTicketingTestPageUrl } from '../../pages/ticketingPage.js';
 import { TrendsPage, toNumber } from '../../pages/ticketingTrendsPage.js';
+import { cleanupWithWarning } from '../utils/test-helpers.js';
 
 const TARGET_PREFIX = 'AutoTarget_';
 const BUILT_IN_TARGETS = {
@@ -157,7 +158,7 @@ test.describe('Ticketing Trends', () => {
     test('create a sales target with +: weekly Detailed View has no NaN values', async ({ page }) => {
         test.fail(true, 'Known bug: custom sales targets show NaN in weekly Detailed View - ClickUp: TODO');
         const name = `${TARGET_PREFIX}${Date.now().toString().slice(-6)}`;
-        await trends.deleteTargetsMatching(new RegExp(`^${TARGET_PREFIX}`));       // leftovers from an earlier failed run
+        await cleanupWithWarning('leftover sales targets', () => trends.deleteTargetsMatching(new RegExp(`^${TARGET_PREFIX}`)));
 
         try {
             await trends.createTarget({ name, type: 'Weekly' });
@@ -173,7 +174,7 @@ test.describe('Ticketing Trends', () => {
             const cells = view.rows.concat(view.totals).flatMap(row => row.cells.slice(group.start - 1, group.start - 1 + group.colspan));
             expect(cells.filter(cell => /NaN/.test(cell)), 'No NaN figures in the target\'s columns').toEqual([]);
         } finally {
-            await trends.deleteTargetsMatching(new RegExp(`^${TARGET_PREFIX}`));
+            await cleanupWithWarning('sales target', () => trends.deleteTargetsMatching(new RegExp(`^${TARGET_PREFIX}`)));
         }
     });
 
@@ -181,7 +182,7 @@ test.describe('Ticketing Trends', () => {
         test.fail(true, 'Known bug: ticking a custom target does not show it on the graph - ClickUp: TODO');
         const name = `${TARGET_PREFIX}${Date.now().toString().slice(-6)}`;
         const graph = page.locator('canvas').first();
-        await trends.deleteTargetsMatching(new RegExp(`^${TARGET_PREFIX}`));
+        await cleanupWithWarning('leftover sales targets', () => trends.deleteTargetsMatching(new RegExp(`^${TARGET_PREFIX}`)));
 
         try {
             await trends.createTarget({ name, type: 'Weekly' });
@@ -192,7 +193,31 @@ test.describe('Ticketing Trends', () => {
                 message: 'Graph updates after selecting the sales target',
             }).not.toBe(0);
         } finally {
-            await trends.deleteTargetsMatching(new RegExp(`^${TARGET_PREFIX}`));
+            await cleanupWithWarning('sales target', () => trends.deleteTargetsMatching(new RegExp(`^${TARGET_PREFIX}`)));
+        }
+    });
+
+    test('create, rename and delete a weekly sales target', async () => {
+        const name = `${TARGET_PREFIX}${Date.now().toString().slice(-6)}`;
+        const edited = `${name}_edited`;
+        await cleanupWithWarning('leftover sales targets', () => trends.deleteTargetsMatching(new RegExp(`^${TARGET_PREFIX}`)));
+
+        try {
+            await trends.createTarget({ name, type: 'Weekly' });
+            await trends.renameTarget(name, edited);
+
+            await expect.poll(() => trends.getCustomTargetNames()).toContain(edited);
+            await expect.poll(() => trends.getCustomTargetNames()).not.toContain(name);
+            await trends.setTargetSelected(edited, true);
+            await expect.poll(async () => targetGroups(await trends.readDetailedView())).toContain(edited);
+
+            await trends.deleteTarget(edited);
+            await trends.goto();
+            const remainingTargets = await trends.getCustomTargetNames();
+            expect(remainingTargets, 'Renamed target is deleted after reload').not.toContain(edited);
+            expect(remainingTargets, 'Original target name stays deleted').not.toContain(name);
+        } finally {
+            await cleanupWithWarning('renamed sales target', () => trends.deleteTargetsMatching(new RegExp(`^${TARGET_PREFIX}`)));
         }
     });
 
@@ -320,7 +345,7 @@ test.describe('Ticketing Trends', () => {
                     expect(await trends.findAnnotationDot(), 'The annotation point should be gone').toBeNull();
                 });
             } finally {
-                await trends.deleteTestAnnotations();
+                await cleanupWithWarning('test annotations', () => trends.deleteTestAnnotations());
             }
         });
     }

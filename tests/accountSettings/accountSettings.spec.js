@@ -6,6 +6,7 @@
 // The logo is not changed (there is none today): only its upload control is checked.
 import { test, expect } from '../../fixtures/baseTest.js';
 import { regressionAccountName, regressionAccountUrl } from '../../pages/accountConfig.js';
+import { cleanupWithWarning } from '../utils/test-helpers.js';
 
 const BANK = {
     accountName: 'Automation Regression Account',
@@ -52,10 +53,12 @@ test.describe('Account Settings', () => {
             await expect(page.getByRole('button', { name: edited }), 'Account switcher in the top bar').toBeVisible();
             await expect(page.getByText(edited).first()).toBeVisible();
         } finally {
-            await setField(page, field(page, 'accountName'), original);
-            await reload(page);
-            await expect(field(page, 'accountName'), 'Name restored').toHaveValue(original);
-            await expect(page.getByRole('button', { name: regressionAccountName })).toBeVisible();
+            await cleanupWithWarning('account name', async () => {
+                await setField(page, field(page, 'accountName'), original);
+                await reload(page);
+                await expect(field(page, 'accountName'), 'Name restored').toHaveValue(original);
+                await expect(page.getByRole('button', { name: regressionAccountName })).toBeVisible();
+            });
         }
     });
 
@@ -91,14 +94,16 @@ test.describe('Account Settings', () => {
                 await expect(page.getByPlaceholder(placeholder).first(), placeholder).toHaveValue(edited[i]);
             }
         } finally {
-            for (const [i, placeholder] of ['Address Line 1', 'Address Line 2', 'City', 'Postal Code'].entries()) {
-                await setField(page, page.getByPlaceholder(placeholder).first(), originals[i]);
-            }
-            await reload(page);
-            for (const [i, placeholder] of ['Address Line 1', 'Address Line 2', 'City', 'Postal Code'].entries()) {
-                await expect(page.getByPlaceholder(placeholder).first(), `${placeholder} restored`).toHaveValue(originals[i]);
-            }
-            await expect(countrySelect).toHaveValue(originalCountry);
+            await cleanupWithWarning('postal address', async () => {
+                for (const [i, placeholder] of ['Address Line 1', 'Address Line 2', 'City', 'Postal Code'].entries()) {
+                    await setField(page, page.getByPlaceholder(placeholder).first(), originals[i]);
+                }
+                await reload(page);
+                for (const [i, placeholder] of ['Address Line 1', 'Address Line 2', 'City', 'Postal Code'].entries()) {
+                    await expect(page.getByPlaceholder(placeholder).first(), `${placeholder} restored`).toHaveValue(originals[i]);
+                }
+                await expect(countrySelect).toHaveValue(originalCountry);
+            });
         }
     });
 
@@ -120,9 +125,11 @@ test.describe('Account Settings', () => {
             await reload(page);
             for (const [key, id] of Object.entries(ids)) await expect(field(page, id), key).toHaveValue(BANK[key]);
         } finally {
-            for (const [key, id] of Object.entries(ids)) await setField(page, field(page, id), originals[key]);
-            await reload(page);
-            for (const [key, id] of Object.entries(ids)) await expect(field(page, id), `${key} restored`).toHaveValue(originals[key]);
+            await cleanupWithWarning('banking details', async () => {
+                for (const [key, id] of Object.entries(ids)) await setField(page, field(page, id), originals[key]);
+                await reload(page);
+                for (const [key, id] of Object.entries(ids)) await expect(field(page, id), `${key} restored`).toHaveValue(originals[key]);
+            });
         }
     }
 
@@ -160,7 +167,7 @@ test.describe('Account Settings', () => {
                 await expect(field(page, id), `${id} after reload`).toHaveValue(value);
             }
         } finally {
-            await restorePreferences(page, originals);
+            await cleanupWithWarning('general preferences', () => restorePreferences(page, originals));
         }
     });
 
@@ -174,7 +181,7 @@ test.describe('Account Settings', () => {
             await reload(page);
             for (const [id, value] of preferenceEntries) await expect(field(page, id), id).toHaveValue(value);
         } finally {
-            await restorePreferences(page, originals);
+            await cleanupWithWarning('general preferences', () => restorePreferences(page, originals));
         }
     });
 
@@ -190,13 +197,15 @@ test.describe('Account Settings', () => {
             await reload(page);
             expect(await twoFactor.isChecked(), 'Setting after reload').toBe(!original);
         } finally {
-            if ((await twoFactor.isChecked()) !== original) {
-                const saved = page.waitForResponse(isSave, { timeout: 15000 });
-                await (original ? twoFactor.check() : twoFactor.uncheck());
-                await saved;
-            }
-            await reload(page);
-            expect(await twoFactor.isChecked(), '2FA setting restored').toBe(original);
+            await cleanupWithWarning('two-factor authentication setting', async () => {
+                if ((await twoFactor.isChecked()) !== original) {
+                    const saved = page.waitForResponse(isSave, { timeout: 15000 });
+                    await (original ? twoFactor.check() : twoFactor.uncheck());
+                    await saved;
+                }
+                await reload(page);
+                expect(await twoFactor.isChecked(), '2FA setting restored').toBe(original);
+            });
         }
     });
 });

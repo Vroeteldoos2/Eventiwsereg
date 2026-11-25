@@ -6,6 +6,7 @@
 // Runs against TICKETING_TEST_EVENT_URL (an open event). The Direct Sales sales are replaced by the import template
 // (as the Tickets spec's import does); the reverse test puts them back by importing it again.
 import { test, expect } from '../../fixtures/baseTest.js';
+import { cleanupWithWarning } from '../utils/test-helpers.js';
 import { TicketsPage } from '../../pages/ticketingTicketsPage.js';
 import { TransactionsPage } from '../../pages/ticketingTransactionsPage.js';
 import { TicketingDashboardPage } from '../../pages/ticketingDashboardPage.js';
@@ -119,7 +120,7 @@ test.describe('Ticketing Transactions', () => {
             await dashboard.goto();
             expect((await dashboard.readKpis())['Tickets Sold'].value, 'Tickets Sold on the Dashboard').toBe(soldBefore - 1);
         } finally {
-            await importTemplate();
+            await cleanupWithWarning('restore transaction import template', () => importTemplate());
         }
     });
 

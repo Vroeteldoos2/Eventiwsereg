@@ -36,6 +36,11 @@ jobs:
           USER_EMAIL: ${{ secrets.USER_EMAIL }}
           USER_PASSWORD: ${{ secrets.USER_PASSWORD }}
           QA_EMAIL: ${{ secrets.QA_EMAIL }}
+          BUDGET_SUPPLIER: ${{ secrets.BUDGET_SUPPLIER }}
+          BUDGET_SUBCATEGORY: ${{ secrets.BUDGET_SUBCATEGORY }}
+          BUDGET_REVENUE_SUBCATEGORY: ${{ secrets.BUDGET_REVENUE_SUBCATEGORY }}
+          REGRESSION_ACCOUNT_ID: ${{ secrets.REGRESSION_ACCOUNT_ID }}
+          REGRESSION_ACCOUNT_NAME: ${{ secrets.REGRESSION_ACCOUNT_NAME }}
           APPROVALS_EVENT_URL: ${{ secrets.APPROVALS_EVENT_URL }}
           BUDGET_EVENT_URL: ${{ secrets.BUDGET_EVENT_URL }}
           BVA_EVENT_URL: ${{ secrets.BVA_EVENT_URL }}
@@ -65,6 +70,11 @@ jobs:
               "USER_EMAIL=$env:USER_EMAIL"
               "USER_PASSWORD=$env:USER_PASSWORD"
               "QA_EMAIL=$env:QA_EMAIL"
+              "BUDGET_SUPPLIER=$env:BUDGET_SUPPLIER"
+              "BUDGET_SUBCATEGORY=$env:BUDGET_SUBCATEGORY"
+              "BUDGET_REVENUE_SUBCATEGORY=$env:BUDGET_REVENUE_SUBCATEGORY"
+              "REGRESSION_ACCOUNT_ID=$env:REGRESSION_ACCOUNT_ID"
+              "REGRESSION_ACCOUNT_NAME=$env:REGRESSION_ACCOUNT_NAME"
               "APPROVALS_EVENT_URL=$env:APPROVALS_EVENT_URL"
               "BUDGET_EVENT_URL=$env:BUDGET_EVENT_URL"
               "BVA_EVENT_URL=$env:BVA_EVENT_URL"
@@ -87,6 +97,48 @@ jobs:
               "UTILISATION_TEAM_MEMBER=$env:UTILISATION_TEAM_MEMBER"
             ) | Set-Content -Path .env -Encoding utf8
           }
+
+      - name: Validate required test environment
+        shell: pwsh
+        run: |
+          $required = @(
+            'USER_EMAIL'
+            'USER_PASSWORD'
+            'EXISTING_EVENT_URL'
+            'KPI_CLOSED_EVENT_URL'
+            'BUDGET_SUPPLIER'
+            'BUDGET_SUBCATEGORY'
+            'BUDGET_REVENUE_SUBCATEGORY'
+            'REGRESSION_ACCOUNT_ID'
+            'REGRESSION_ACCOUNT_NAME'
+          )
+          $values = @{}
+          Get-Content -Path .env | ForEach-Object {
+            if ($_ -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$') {
+              $name = $Matches[1]
+              $value = $Matches[2].Trim()
+              if ($value.Length -ge 2 -and (
+                ($value.StartsWith('"') -and $value.EndsWith('"')) -or
+                ($value.StartsWith("'") -and $value.EndsWith("'"))
+              )) {
+                $value = $value.Substring(1, $value.Length - 2)
+              } else {
+                $value = ($value -split '\s+#', 2)[0].Trim()
+              }
+              $values[$name] = $value
+            }
+          }
+          $missing = @(
+            foreach ($name in $required) {
+              if (-not $values.ContainsKey($name) -or [string]::IsNullOrWhiteSpace($values[$name])) {
+                $name
+              }
+            }
+          )
+          if ($missing.Count -gt 0) {
+            throw "Missing or empty required .env variables: $($missing -join ', ')"
+          }
+          Write-Host 'Required test environment variables are present.'
 
       - name: Run full regression
         shell: pwsh

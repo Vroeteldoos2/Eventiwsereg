@@ -1,5 +1,6 @@
 import { test, expect } from '../../fixtures/baseTest.js';
 import { setupBudgetingTest } from '../utils/setup.js';
+import { cleanupWithWarning } from '../utils/test-helpers.js';
 
 let loginPage, budgetingPage;
 let createdEntryTitles = [];
@@ -82,7 +83,7 @@ test.describe('Cost Budget Entry', () => {
 
     test.afterEach(async () => {
         for (const title of [...new Set(createdEntryTitles)].reverse()) {
-            await budgetingPage.deleteEntryWithPurchaseOrder(title);
+            await cleanupWithWarning(`budget entry ${title}`, () => budgetingPage.deleteEntryWithPurchaseOrder(title));
         }
     });
 
@@ -170,7 +171,7 @@ test.describe('Cost Budget Entry', () => {
             await expect(drawer.locator('button:has(i.mdi-lock-open-variant)'))
                 .toBeVisible({ timeout: 10000 });
         } finally {
-            await deleteBudgetEntry(page, budgetingPage, title);
+            await cleanupWithWarning(`budget entry ${title}`, () => deleteBudgetEntry(page, budgetingPage, title));
         }
     });
 
@@ -196,7 +197,7 @@ test.describe('Cost Budget Entry', () => {
             await expect(budgetingPage.getDrawer().getByText(comment, { exact: true }))
                 .toBeVisible({ timeout: 15000 });
         } finally {
-            await deleteBudgetEntry(page, budgetingPage, title);
+            await cleanupWithWarning(`budget entry ${title}`, () => deleteBudgetEntry(page, budgetingPage, title));
         }
     });
 
@@ -225,7 +226,7 @@ test.describe('Cost Budget Entry', () => {
             await page.getByRole('button', { name: /^Submit$/i }).click();
             await expect(rowFor().locator('td').nth(1)).toHaveText('Draft', { timeout: 15000 });
         } finally {
-            await deleteBudgetEntry(page, budgetingPage, title);
+            await cleanupWithWarning(`budget entry ${title}`, () => deleteBudgetEntry(page, budgetingPage, title));
         }
     });
 
@@ -265,7 +266,7 @@ test.describe('Cost Budget Entry', () => {
             await expect(drawer.getByText('Created draft entry', { exact: true }))
                 .toBeVisible({ timeout: 15000 });
         } finally {
-            await deleteBudgetEntry(page, budgetingPage, title);
+            await cleanupWithWarning(`budget entry ${title}`, () => deleteBudgetEntry(page, budgetingPage, title));
         }
     });
 

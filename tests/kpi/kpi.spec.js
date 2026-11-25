@@ -13,6 +13,7 @@
 import { test, expect } from '../../fixtures/baseTest.js';
 import { EventSettingsPage } from '../../pages/eventSettingsPage.js';
 import { readPdfText } from '../utils/pdf.js';
+import { cleanupWithWarning } from '../utils/test-helpers.js';
 
 const EVENT_URL = (process.env.KPI_EVENT_URL || process.env.PURCHASING_EVENT_URL || process.env.INVOICE_EVENT_URL || '').replace(/\/$/, '');
 // A closed event (writes are refused there, so it is only looked at).
@@ -89,10 +90,12 @@ test.describe('KPI Dashboard', () => {
             await openReport(page);
             await expect(page.getByPlaceholder('Event Running Time'), 'Kept after saving').toHaveValue('Auto 9am - 5pm');
         } finally {
-            await page.getByPlaceholder('Event Running Time').fill(original);
-            await saveReport(page);
-            await openReport(page);
-            await expect(page.getByPlaceholder('Event Running Time'), 'Running time restored').toHaveValue(original);
+            await cleanupWithWarning('KPI running time', async () => {
+                await page.getByPlaceholder('Event Running Time').fill(original);
+                await saveReport(page);
+                await openReport(page);
+                await expect(page.getByPlaceholder('Event Running Time'), 'Running time restored').toHaveValue(original);
+            });
         }
     });
 
@@ -116,13 +119,15 @@ test.describe('KPI Dashboard', () => {
             await expect(after.actual).toHaveValue('130');
             await expect(after.variance, 'Variance kept').toHaveValue('30');
         } finally {
-            const reset = kpiRow(page, ROW);
-            await reset.budgeted.fill(original.budgeted);
-            await reset.actual.fill(original.actual);
-            await saveReport(page);
-            await openReport(page);
-            await expect(kpiRow(page, ROW).budgeted, 'Budgeted restored').toHaveValue(original.budgeted);
-            await expect(kpiRow(page, ROW).actual, 'Actual restored').toHaveValue(original.actual);
+            await cleanupWithWarning('KPI budget and actual values', async () => {
+                const reset = kpiRow(page, ROW);
+                await reset.budgeted.fill(original.budgeted);
+                await reset.actual.fill(original.actual);
+                await saveReport(page);
+                await openReport(page);
+                await expect(kpiRow(page, ROW).budgeted, 'Budgeted restored').toHaveValue(original.budgeted);
+                await expect(kpiRow(page, ROW).actual, 'Actual restored').toHaveValue(original.actual);
+            });
         }
     });
 
@@ -147,13 +152,15 @@ test.describe('KPI Dashboard', () => {
             await expect(page.getByText('FOOD REVENUE', { exact: true }), 'Section is back').toBeVisible();
             await expect(foodRow().budgeted, 'Figures kept while hidden').toHaveValue(marker);
         } finally {
-            if (!await box().isChecked()) await box().check();
-            await foodRow().budgeted.fill(original.budgeted);
-            await foodRow().actual.fill(original.actual);
-            await saveReport(page);
-            await openReport(page);
-            expect(await box().isChecked(), `${section} shown again`).toBe(true);
-            await expect(foodRow().budgeted, 'Food figure restored').toHaveValue(original.budgeted);
+            await cleanupWithWarning(`${section} KPI section and values`, async () => {
+                if (!await box().isChecked()) await box().check();
+                await foodRow().budgeted.fill(original.budgeted);
+                await foodRow().actual.fill(original.actual);
+                await saveReport(page);
+                await openReport(page);
+                expect(await box().isChecked(), `${section} shown again`).toBe(true);
+                await expect(foodRow().budgeted, 'Food figure restored').toHaveValue(original.budgeted);
+            });
         }
     });
 
@@ -178,10 +185,12 @@ test.describe('KPI Dashboard', () => {
             expect(trimmed, 'De-selected section left out').not.toContain('COACHES SALES');
             expect(trimmed, 'The other sections stay').toContain('TOTAL GA TICKETS SOLD');
         } finally {
-            if (!await box().isChecked()) await box().check();
-            await saveReport(page);
-            await openReport(page);
-            expect(await box().isChecked(), `${section} shown again`).toBe(true);
+            await cleanupWithWarning(`${section} KPI section`, async () => {
+                if (!await box().isChecked()) await box().check();
+                await saveReport(page);
+                await openReport(page);
+                expect(await box().isChecked(), `${section} shown again`).toBe(true);
+            });
         }
         expect(await download(), 'Section back in the PDF once re-selected').toContain('COACHES SALES');
     });
@@ -221,10 +230,12 @@ test.describe('KPI Dashboard', () => {
             await openReport(page);
             await expect(kpiRow(page, ROW).actual, 'The latest save overwrote the earlier one').toHaveValue('222');
         } finally {
-            await kpiRow(page, ROW).actual.fill(original);
-            await saveReport(page);
-            await openReport(page);
-            await expect(kpiRow(page, ROW).actual, 'Actual restored').toHaveValue(original);
+            await cleanupWithWarning('KPI actual value', async () => {
+                await kpiRow(page, ROW).actual.fill(original);
+                await saveReport(page);
+                await openReport(page);
+                await expect(kpiRow(page, ROW).actual, 'Actual restored').toHaveValue(original);
+            });
         }
     });
 

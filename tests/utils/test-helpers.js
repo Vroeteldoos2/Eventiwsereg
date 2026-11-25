@@ -1,6 +1,15 @@
 // tests/utils/test-helpers.js
 import { expect } from '@playwright/test';
 
+export async function cleanupWithWarning(description, cleanup) {
+    try {
+        await cleanup();
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(`Cleanup failed (${description}): ${message}`);
+    }
+}
+
 export class TestHelpers {
     constructor(page) {
         this.page = page;
