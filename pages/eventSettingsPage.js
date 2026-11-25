@@ -74,7 +74,7 @@ export class EventSettingsPage {
     }
 
     async waitForChangesSaved() {
-        await this.allChangesSavedIndicator.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
+        await expect(this.allChangesSavedIndicator).toBeVisible({ timeout: 10000 });
     }
 
     async setName(name) {
