@@ -13,7 +13,6 @@ async function selectTicketingRevenueTab(page) {
     const toolbar = salesBtn.locator('xpath=..');
     const revenueTab = toolbar.getByRole('button', { name: /Revenue/i }).first();
     await revenueTab.click();
-    await page.waitForTimeout(600);
 }
 
 const pages = [
