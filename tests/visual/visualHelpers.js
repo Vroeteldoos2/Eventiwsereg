@@ -15,7 +15,6 @@ export async function selectDepartmentTab(page, tabName) {
     const tab = page.locator('button').filter({ hasText: new RegExp(`^${tabName}$`, 'i') }).first();
     await tab.waitFor({ state: 'visible', timeout: 10000 });
     await tab.click();
-    await page.waitForTimeout(600);
 }
 
 // Budget Entries / Recharged Entries tables grow continuously as other tests
