@@ -50,8 +50,7 @@ test.describe('Revenue - entries and customer invoices', () => {
     });
 
     test.afterEach(async ({ revenuePage }) => {
-        await revenuePage.deleteRevenueEntries(STREAM, new RegExp(`^${ENTRY_PREFIX}\\d+$`))
-            .catch(error => console.log(`⚠️ Cleanup failed: ${error.message}`));
+        await revenuePage.deleteRevenueEntries(STREAM, new RegExp(`^${ENTRY_PREFIX}\\d+$`));
     });
 
     test('Revenue stream totals match the Budgeting page', async ({ revenuePage, budgetingPage }) => {
