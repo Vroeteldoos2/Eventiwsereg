@@ -18,6 +18,7 @@ dotenv.config();
 // --dry-run lists the stages without running anything.
 const DRY_RUN = process.argv.includes('--dry-run');
 const VALID_STAGES = [
+    'login',
     'setup-tickets',
     'event-dashboard',
     'purchase-order',
@@ -78,7 +79,8 @@ if (onlyArg && only.length === 0) {
 // --event=<url> (or the older --existing=<url>) overrides the event from .env.
 const eventArg = process.argv.find(arg => arg.startsWith('--event=') || arg.startsWith('--existing='));
 const eventUrl = ((eventArg && eventArg.split('=')[1]) || process.env.EXISTING_EVENT_URL || process.env.PURCHASING_EVENT_URL || '').replace(/\/$/, '');
-if (!eventUrl && !DRY_RUN) {
+const requiresEvent = !only || only.some(name => name !== 'login');
+if (!eventUrl && !DRY_RUN && requiresEvent) {
     console.error('✖ No event to run against. Pass --event=<url> or set EXISTING_EVENT_URL / PURCHASING_EVENT_URL in .env.');
     process.exit(1);
 }
@@ -105,6 +107,7 @@ const stage = (name, specs, env = followUpEnv) => {
 
 // Test-data setup: adds the tickets (Earlybird, Main, VIP, Direct Sales) if the event has none. Needed by the ticketing,
 // revenue tickets, price per head and Budget v Actuals stages. Does nothing when the event already has tickets.
+stage('login', ['tests/login.spec.js'], {});
 stage('setup-tickets', ['tests/setup/ensureTickets.spec.js'], { ...followUpEnv, ENSURE_TICKETS_EVENT_URL: ticketingEventUrl });
 
 stage('event-dashboard', ['tests/eventDashboard.spec.js']);
@@ -168,7 +171,7 @@ if (!DRY_RUN) {
     const summary = {};
     for (const [name, status] of Object.entries(statuses)) {
         const reportPath = `test-results/${name}/results.json`;
-        const counts = { pass: 0, fail: 0, 'expected-fail': 0, skipped: 0 };
+        const counts = { pass: 0, fail: 0, flaky: 0, 'expected-fail': 0, skipped: 0 };
         if (!existsSync(reportPath)) {
             console.error(`✖ JSON report missing for stage "${name}" at ${reportPath}`);
             statuses[name] = 1;
@@ -183,6 +186,8 @@ if (!DRY_RUN) {
                     for (const test of spec.tests ?? []) {
                         if (test.status === 'skipped' || test.expectedStatus === 'skipped') {
                             counts.skipped++;
+                        } else if (test.status === 'flaky') {
+                            counts.flaky++;
                         } else if (test.status === 'expected' && test.expectedStatus === 'failed') {
                             counts['expected-fail']++;
                         } else if (test.status === 'expected' && test.expectedStatus === 'passed') {
