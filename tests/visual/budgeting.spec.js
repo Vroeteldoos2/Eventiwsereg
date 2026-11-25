@@ -1,5 +1,5 @@
 // tests/visual/budgeting.spec.js
-import { runVisualPages, selectDepartmentTab, verifyEntriesTableColumns } from './visualHelpers.js';
+import { expect, runVisualPages, selectDepartmentTab, verifyEntriesTableColumns } from './visualHelpers.js';
 
 // ── Cost Budget drill-down helpers ──────────────────────────────────────────
 // Scoped to whichever department/subcategory is first in the list (per the
@@ -11,7 +11,8 @@ async function gotoCostBudget({ page, budgetingPage }) {
         waitUntil: 'domcontentloaded',
         timeout: 60000,
     });
-    await page.waitForLoadState('networkidle');
+    await expect(page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 30000 });
+    await expect(page.locator('table tbody tr').first()).toBeVisible({ timeout: 30000 });
 }
 
 // Clicks the arrow (→) on the first cost department row to enter its
@@ -19,16 +20,22 @@ async function gotoCostBudget({ page, budgetingPage }) {
 async function enterFirstCostDepartment(page) {
     const row = page.locator('tr.tw-cursor-pointer').first();
     await row.waitFor({ state: 'visible', timeout: 10000 });
+    const previousUrl = page.url();
     await row.locator('button').filter({ has: page.locator('i.mdi-arrow-right') }).first().click();
-    await page.waitForLoadState('networkidle');
+    await expect(page).not.toHaveURL(previousUrl, { timeout: 15000 });
+    await expect(page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 30000 });
+    await expect(page.locator('table tbody tr').first()).toBeVisible({ timeout: 30000 });
 }
 
 // From a department's Subcategories page, clicks the arrow (→) on the first
 // subcategory row to enter its Budget Entries page.
 async function enterFirstCostSubcategory(page) {
     const row = page.locator('tr').filter({ has: page.locator('button i.mdi-arrow-right') }).first();
+    const previousUrl = page.url();
     await row.locator('button').filter({ has: page.locator('i.mdi-arrow-right') }).first().click();
-    await page.waitForLoadState('networkidle');
+    await expect(page).not.toHaveURL(previousUrl, { timeout: 15000 });
+    await expect(page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 30000 });
+    await expect(page.locator('table tbody tr').first()).toBeVisible({ timeout: 30000 });
 }
 
 // Goes to the Budget Summary page and clicks the first row in the Cost
@@ -41,7 +48,7 @@ async function expandFirstCostDepartmentPanel({ page, budgetingPage }) {
     const row = costSection.locator('tr.tw-cursor-pointer').first();
     await row.waitFor({ state: 'visible', timeout: 10000 });
     await row.click();
-    await page.waitForTimeout(800);
+    await expect(page.locator('tr.expanded-row').first()).toBeVisible({ timeout: 10000 });
 }
 
 const pages = [
