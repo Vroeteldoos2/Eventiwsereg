@@ -4,7 +4,8 @@ test.describe('Event Dashboard Tests', () => {
 
     test.beforeEach(async ({ page, dashboardPage }) => {
         await page.goto(process.env.DASHBOARD_EVENT_URL);
-        await page.waitForLoadState('networkidle');
+        await expect(page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 30000 });
+        await expect(page.locator('i.mdi.mdi-view-dashboard')).toBeVisible({ timeout: 30000 });
         await dashboardPage.dismissAutoModal();
     });
 
