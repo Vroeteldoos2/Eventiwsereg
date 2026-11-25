@@ -1,8 +1,8 @@
 // budgetingTotals.spec.js
 import { test, expect } from '../../fixtures/baseTest.js';
-import { setupBudgetingTest }    from '../utils/setup';  // ← add this
-import { LoginPage } from '../../pages/loginPage';
-import { BudgetingPage } from '../../pages/budgetingPage';
+import { setupBudgetingTest }    from '../utils/setup.js';  // ← add this
+import { LoginPage } from '../../pages/loginPage.js';
+import { BudgetingPage } from '../../pages/budgetingPage.js';
 
 let loginPage, budgetingPage;
 
