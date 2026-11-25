@@ -1,7 +1,7 @@
 import { test, expect } from '../../fixtures/baseTest.js';
 import { readFile } from 'node:fs/promises';
 import { inflateRawSync } from 'node:zlib';
-import { setupBudgetingTest } from '../utils/setup';
+import { setupBudgetingTest } from '../utils/setup.js';
 
 let budgetingPage;
 
