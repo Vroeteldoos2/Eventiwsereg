@@ -121,7 +121,6 @@ Key settings and why they're set this way:
 | `USER_EMAIL`, `USER_PASSWORD` | Login credentials used by `global-setup.js` |
 | `REGRESSION_ACCOUNT_NAME`, `REGRESSION_ACCOUNT_ID` | Account selected by regression tests and used for account-level navigation |
 | `REGRESSION_TAX_RATE` | Tax rate selected during regression event ticket setup |
-| `EVENT_NAME` | Event searched for in `loginPage.gotoEventDashboardPage()` |
 | `DASHBOARD_EVENT_URL` | Direct URL to the dashboard test event |
 | `BUDGET_EVENT_URL` | Base URL for the budgeting test event (`budgetingPage.eventBaseUrl`) |
 | `BUDGET_SUBCATEGORY`, `BUDGET_SUPPLIER`, `BUDGET_FIXED_COST`, `BUDGET_BUDGETED_COST`, `BUDGET_ACTUAL_COST` | Test data for budget entry creation |
