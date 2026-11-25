@@ -1,6 +1,8 @@
 import { test, expect }       from '@playwright/test';
 import { setupBudgetingTest } from '../utils/setup';
 
+const QA_EMAIL = process.env.QA_EMAIL?.trim() || '';
+
 let loginPage, budgetingPage;
 
 test.describe('Purchase Order', () => {
@@ -218,6 +220,7 @@ test.describe('Purchase Order', () => {
     });
 
     test('Send the PO PDF by email', async ({ page }) => {
+        test.skip(!QA_EMAIL, 'Set QA_EMAIL to run the PO email test');
         await setupApprovedEntryWithPO(budgetingPage, page);
         const poDrawer = page.locator('.modal-shell').first();
 
@@ -228,9 +231,9 @@ test.describe('Purchase Order', () => {
         await emailButton.click();
         const recipientInput = page.getByPlaceholder('Type an email address and press enter to add');
         await expect(recipientInput).toBeVisible();
-        await recipientInput.fill('sreeja@eventwise.com');
+        await recipientInput.fill(QA_EMAIL);
         await recipientInput.press('Enter');
-        await expect(page.getByText('sreeja@eventwise.com', { exact: true })).toBeVisible();
+        await expect(page.getByText(QA_EMAIL, { exact: true })).toBeVisible();
         await page.getByRole('button', { name: 'Send Email', exact: true }).click();
         await expect(recipientInput).toBeHidden({ timeout: 15000 });
     });

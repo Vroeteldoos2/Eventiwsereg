@@ -137,7 +137,8 @@ test.describe('Account Settings', () => {
         await bankingDetailsAreSaved(page, { bankName: 'bankName', iban: 'bankIban' });
     });
 
-    const PREFERENCES = { days_to_sales_invoice_due: '45', hours_in_day: '8', poPrefix: 'POA', siPrefix: 'SIA', replyToEmail: 'sreeja@eventwise.com' };
+    const QA_EMAIL = process.env.QA_EMAIL?.trim() || '';
+    const PREFERENCES = { days_to_sales_invoice_due: '45', hours_in_day: '8', poPrefix: 'POA', siPrefix: 'SIA', replyToEmail: QA_EMAIL };
 
     // Puts each preference back one at a time, reloading after each (changing several in a row can lose a value).
     async function restorePreferences(page, originals) {
@@ -151,6 +152,7 @@ test.describe('Account Settings', () => {
     }
 
     test('General preferences: invoice lead days, hours in a day, PO / sales invoice prefixes and reply-to email are each saved', async ({ page }) => {
+        test.skip(!QA_EMAIL, 'Set QA_EMAIL to run the reply-to email preference test');
         const originals = {};
         for (const id of Object.keys(PREFERENCES)) originals[id] = await field(page, id).inputValue();
         try {
@@ -167,6 +169,7 @@ test.describe('Account Settings', () => {
     // Changing several preferences one after another: each save carries the whole account, and the PO prefix is often
     // found back at its old value after a reload (the later saves overwrite it).
     test('General preferences: several preferences changed in a row are all kept', async ({ page }) => {
+        test.skip(!QA_EMAIL, 'Set QA_EMAIL to run the reply-to email preference test');
         const originals = {};
         for (const id of Object.keys(PREFERENCES)) originals[id] = await field(page, id).inputValue();
         try {

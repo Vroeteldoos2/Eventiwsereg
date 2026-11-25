@@ -16,8 +16,8 @@ import { readPdfText } from '../utils/pdf.js';
 
 const EVENT_URL = (process.env.KPI_EVENT_URL || process.env.PURCHASING_EVENT_URL || process.env.INVOICE_EVENT_URL || '').replace(/\/$/, '');
 // A closed event (writes are refused there, so it is only looked at).
-const CLOSED_EVENT_URL = (process.env.BUDGET_EVENT_URL || '').replace(/\/$/, '');
-const EMAIL_TO = process.env.KPI_EMAIL_TO || 'sreeja@eventwise.com';
+const CLOSED_EVENT_URL = (process.env.KPI_CLOSED_EVENT_URL || '').replace(/\/$/, '');
+const QA_EMAIL = process.env.QA_EMAIL?.trim() || '';
 const ROW = 'TOTAL GA TICKETS SOLD';
 
 const isReportSave = r => r.request().method() === 'PUT' && /\/kpi-report\/\d+$/.test(r.url());
@@ -189,6 +189,7 @@ test.describe('KPI Dashboard', () => {
     });
 
     test('Email: the report can be emailed as a PDF', async ({ page }) => {
+        test.skip(!QA_EMAIL, 'Set QA_EMAIL to run the KPI email test');
         await page.getByRole('button', { name: 'Email' }).click();
         const dialog = page.locator('.m-wrapper, .modal-shell, div.drawer, [role="dialog"]').filter({ hasText: 'Send KPI Report by email' }).last();
         await expect(dialog).toBeVisible({ timeout: 10000 });
@@ -196,9 +197,9 @@ test.describe('KPI Dashboard', () => {
         const send = dialog.getByRole('button', { name: 'Send Email' });
         await expect(send, 'Send Email waits for an address').toBeDisabled();
 
-        await dialog.getByPlaceholder('Type an email address and press enter to add').fill(EMAIL_TO);
+        await dialog.getByPlaceholder('Type an email address and press enter to add').fill(QA_EMAIL);
         await page.keyboard.press('Enter');
-        await expect(dialog.getByText(EMAIL_TO), 'Address added').toBeVisible();
+        await expect(dialog.getByText(QA_EMAIL), 'Address added').toBeVisible();
         await expect(send).toBeEnabled();
         const sent = page.waitForResponse(r => r.request().method() === 'POST' && /\/kpi-report\/\d+\/email$/.test(r.url()), { timeout: 20000 });
         await send.click();

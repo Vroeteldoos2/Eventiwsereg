@@ -16,6 +16,28 @@ dotenv.config();
 
 // --dry-run lists the stages without running anything.
 const DRY_RUN = process.argv.includes('--dry-run');
+const VALID_STAGES = [
+    'setup-tickets',
+    'event-dashboard',
+    'purchase-order',
+    'budgeting',
+    'price-per-head',
+    'budget-v-actuals',
+    'revenue-tickets',
+    'ticketing',
+    'invoice',
+    'purchasing',
+    'approvals',
+    'event-settings',
+    'kpi',
+    'revenue',
+    'account-dashboard',
+    'account-sales-invoices',
+    'account-entries',
+    'account-settings',
+    'team-utilisation',
+];
+
 function runPlaywright(specs, stage, extraEnv = {}) {
     console.log(`
 ▶ ${stage}: ${specs.join(' ')}
@@ -38,14 +60,27 @@ function runPlaywright(specs, stage, extraEnv = {}) {
     return result.status ?? 1;
 }
 
+// --only=a,b,c runs just those stages (names as in the Reports list).
+const onlyArg = process.argv.find(arg => arg.startsWith('--only='));
+const only = onlyArg ? onlyArg.slice('--only='.length).split(',').map(name => name.trim()).filter(Boolean) : null;
+const unknownStages = only?.filter(name => !VALID_STAGES.includes(name)) ?? [];
+if (unknownStages.length) {
+    console.error(`✖ Unknown stage name(s): ${unknownStages.join(', ')}. Valid names: ${VALID_STAGES.join(', ')}`);
+    process.exit(1);
+}
+if (onlyArg && only.length === 0) {
+    console.error(`✖ No stage selected. Valid names: ${VALID_STAGES.join(', ')}`);
+    process.exit(1);
+}
+
 // --event=<url> (or the older --existing=<url>) overrides the event from .env.
 const eventArg = process.argv.find(arg => arg.startsWith('--event=') || arg.startsWith('--existing='));
 const eventUrl = ((eventArg && eventArg.split('=')[1]) || process.env.EXISTING_EVENT_URL || process.env.PURCHASING_EVENT_URL || '').replace(/\/$/, '');
-if (!eventUrl) {
+if (!eventUrl && !DRY_RUN) {
     console.error('✖ No event to run against. Pass --event=<url> or set EXISTING_EVENT_URL / PURCHASING_EVENT_URL in .env.');
     process.exit(1);
 }
-console.log(`
+if (eventUrl) console.log(`
 📍 No event is created; every suite runs against ${eventUrl}`);
 
 const followUpEnv = {
@@ -61,9 +96,6 @@ const followUpEnv = {
 const ticketingEventUrl = process.env.TICKETING_REGRESSION_EVENT_URL ? process.env.TICKETING_REGRESSION_EVENT_URL.replace(/\/$/, '') : eventUrl;
 
 const statuses = {};
-// --only=a,b,c runs just those stages (names as in the Reports list).
-const onlyArg = process.argv.find(arg => arg.startsWith('--only='));
-const only = onlyArg ? onlyArg.slice('--only='.length).split(',').map(name => name.trim()).filter(Boolean) : null;
 const stage = (name, specs, env = followUpEnv) => {
     if (only && !only.includes(name)) return;
     statuses[name] = runPlaywright(specs, name, env);
@@ -126,6 +158,14 @@ stage('account-settings', ['tests/accountSettings/'], followUpEnv);
 stage('team-utilisation', ['tests/teamUtilisation/'], {});
 
 const failed = Object.entries(statuses).filter(([, status]) => status !== 0).map(([name]) => name);
+if (Object.keys(statuses).length === 0) {
+    console.error(`✖ No stage ran. Valid names: ${VALID_STAGES.join(', ')}`);
+    process.exit(1);
+}
 console.log(`\nReports: ${Object.keys(statuses).map(name => `playwright-report/${name}`).join(', ')}`);
-console.log(failed.length ? `\n✖ Stages with failures: ${failed.join(', ')}` : '\n✔ Every stage passed');
+if (DRY_RUN) {
+    console.log('\nDry run: nothing executed');
+} else {
+    console.log(failed.length ? `\n✖ Stages with failures: ${failed.join(', ')}` : '\n✔ Every stage passed');
+}
 process.exit(failed.length ? 1 : 0);

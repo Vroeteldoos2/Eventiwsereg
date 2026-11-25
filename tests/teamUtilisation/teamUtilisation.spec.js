@@ -10,7 +10,7 @@ const ACCOUNT_URL = `https://eventwise.synergi.dev/account/${process.env.UTILISA
 const RESOURCE_URL = `${ACCOUNT_URL}/utilisation`;
 const TIME_LOGS_URL = `${ACCOUNT_URL}/utilisation/time-logs`;
 const TASKS_URL = `${ACCOUNT_URL}/utilisation/tasks`;
-const TEAM_MEMBER = process.env.UTILISATION_TEAM_MEMBER ?? 'Sreeja George'; // has time logs against an event
+const TEAM_MEMBER = process.env.UTILISATION_TEAM_MEMBER?.trim() || '';
 
 const TEST_USER = process.env.UTILISATION_TEST_USER ?? 'EWevent User'; // eweventuser@gmail.com
 
@@ -194,6 +194,7 @@ test.describe('Team Utilisation', () => {
         });
 
         test('logged hours in Actual Charges agree with the Time Logs table for a team member', async ({ page }) => {
+            test.skip(!TEAM_MEMBER, 'Set UTILISATION_TEAM_MEMBER to run the team member time-log comparison');
             await open(page, TIME_LOGS_URL, 'This week');
             await page.getByRole('button', { name: 'Table', exact: true }).click();
             await settle(page);
