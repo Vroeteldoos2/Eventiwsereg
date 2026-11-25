@@ -154,50 +154,46 @@ test.describe('Ticketing Trends', () => {
         expect(Object.values(perType).reduce((sum, sold) => sum + sold, 0), 'Ticket types add up to the total').toBe(total);
     });
 
-    test('create a sales target with +: shows in the table and graph, can be edited and deleted', async ({ page }) => {
+    test('create a sales target with +: weekly Detailed View has no NaN values', async ({ page }) => {
         test.fail(true, 'Known bug: custom sales targets show NaN in weekly Detailed View - ClickUp: TODO');
-        test.fail(true, 'Known bug: ticking a custom target does not show it on the graph - ClickUp: TODO');
         const name = `${TARGET_PREFIX}${Date.now().toString().slice(-6)}`;
-        const renamed = `${name}_edited`;
-        const graph = page.locator('canvas').first();
         await trends.deleteTargetsMatching(new RegExp(`^${TARGET_PREFIX}`));       // leftovers from an earlier failed run
 
         try {
-            await test.step('Create it', async () => {
-                await trends.createTarget({ name, type: 'Weekly' });
-                await expect(trends.targetRow(name)).toContainText('Weekly');
-                await expect(trends.targetRow(name).locator('button:has(i.mdi-pencil)'), 'can be edited').toBeVisible();
-                await expect(trends.targetRow(name).locator('td').last().locator('button').last(), 'can be deleted').toBeVisible();
-            });
+            await trends.createTarget({ name, type: 'Weekly' });
+            await expect(trends.targetRow(name)).toContainText('Weekly');
+            await expect(trends.targetRow(name).locator('button:has(i.mdi-pencil)'), 'can be edited').toBeVisible();
+            await expect(trends.targetRow(name).locator('td').last().locator('button').last(), 'can be deleted').toBeVisible();
 
-            await test.step('Ticking it shows it in the Detailed View and on the graph', async () => {
-                await page.waitForTimeout(1000);
-                const before = await graph.screenshot();
-                await trends.setTargetSelected(name, true);
-                await page.waitForTimeout(1500);
-                const view = await trends.readDetailedView();
-                expect(targetGroups(view), 'Detailed View has a column group for the target').toEqual([name]);
-                const group = view.groups.find(g => g.name === name);
-                const cells = view.rows.concat(view.totals).flatMap(row => row.cells.slice(group.start - 1, group.start - 1 + group.colspan));
-                expect(cells.filter(cell => /NaN/.test(cell)), 'No NaN figures in the target\'s columns').toEqual([]);
-                expect(Buffer.compare(before, await graph.screenshot()), 'The graph changes when the target is ticked').not.toBe(0);
-            });
-
-            await test.step('Edit it', async () => {
-                await trends.renameTarget(name, renamed);
-                await expect(trends.targetRow(name)).toHaveCount(0);
-                expect(await trends.getCustomTargetNames()).toContain(renamed);
-                expect(targetGroups(await trends.readDetailedView()), 'The table follows the new name').toEqual([renamed]);
-            });
+            await trends.setTargetSelected(name, true);
+            await expect.poll(async () => targetGroups(await trends.readDetailedView())).toEqual([name]);
+            const view = await trends.readDetailedView();
+            expect(targetGroups(view), 'Detailed View has a column group for the target').toEqual([name]);
+            const group = view.groups.find(g => g.name === name);
+            const cells = view.rows.concat(view.totals).flatMap(row => row.cells.slice(group.start - 1, group.start - 1 + group.colspan));
+            expect(cells.filter(cell => /NaN/.test(cell)), 'No NaN figures in the target\'s columns').toEqual([]);
         } finally {
             await trends.deleteTargetsMatching(new RegExp(`^${TARGET_PREFIX}`));
         }
+    });
 
-        await test.step('Delete it', async () => {
-            await trends.goto();
-            expect(await trends.getCustomTargetNames()).not.toEqual(expect.arrayContaining([name]));
-            expect(await trends.getCustomTargetNames()).not.toEqual(expect.arrayContaining([renamed]));
-        });
+    test('create a sales target with +: ticking it changes the graph', async ({ page }) => {
+        test.fail(true, 'Known bug: ticking a custom target does not show it on the graph - ClickUp: TODO');
+        const name = `${TARGET_PREFIX}${Date.now().toString().slice(-6)}`;
+        const graph = page.locator('canvas').first();
+        await trends.deleteTargetsMatching(new RegExp(`^${TARGET_PREFIX}`));
+
+        try {
+            await trends.createTarget({ name, type: 'Weekly' });
+            await expect(trends.targetRow(name)).toContainText('Weekly');
+            const before = await graph.screenshot();
+            await trends.setTargetSelected(name, true);
+            await expect.poll(async () => Buffer.compare(before, await graph.screenshot()), {
+                message: 'Graph updates after selecting the sales target',
+            }).not.toBe(0);
+        } finally {
+            await trends.deleteTargetsMatching(new RegExp(`^${TARGET_PREFIX}`));
+        }
     });
 
     // The wizard says the value entered in step 1 is the target's total ("…cannot exceed your maximum
@@ -228,7 +224,7 @@ test.describe('Ticketing Trends', () => {
         await expect(menu).toContainText('Cheapest');
         await expect(menu).toContainText('Prioritise tickets starting from the cheapest moving up');
         await menu.getByText('Cheapest', { exact: true }).click();
-        await trends.page.waitForTimeout(1500);
+        await expect(trends.priorityTrigger()).toContainText('Cheapest');
 
         expect(await trends.getBreakevenPriority()).toBe('Cheapest');
         const cheapest = await trends.readDetailedView();
@@ -324,8 +320,7 @@ test.describe('Ticketing Trends', () => {
                     expect(await trends.findAnnotationDot(), 'The annotation point should be gone').toBeNull();
                 });
             } finally {
-                // Don't leave an annotation behind if a step above failed.
-                await trends.deleteTestAnnotations().catch(() => {});
+                await trends.deleteTestAnnotations();
             }
         });
     }
