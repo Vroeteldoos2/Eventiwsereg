@@ -6,8 +6,9 @@
 // report from the tabs (loading a report URL directly shows no event).
 // Only that one event (and, for Group Tags, the one tag) is ever selected.
 import { test, expect } from '../../fixtures/baseTest.js';
+import { BASE_URL } from '../../pages/env.js';
 
-const ACCOUNT_URL = `https://eventwise.synergi.dev/account/${process.env.REPORTING_ACCOUNT_ID ?? '14'}`;
+const ACCOUNT_URL = `${BASE_URL}/account/${process.env.REPORTING_ACCOUNT_ID ?? '14'}`;
 const REPORTING_URL = `${ACCOUNT_URL}/reporting`;
 const TAG = process.env.REPORTING_TAG_NAME ?? 'Techno';
 const EVENT_A = { id: 196, name: process.env.REPORTING_EVENT_A_NAME ?? 'AutoCopyEvent_713148' };

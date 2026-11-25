@@ -13,29 +13,27 @@ export default defineConfig({
     expect: {
         timeout: 10000,
     },
-    fullyParallel: true,
+    fullyParallel: false,
     forbidOnly: !!process.env.CI,
-    retries: process.env.CI ? 2 : 0,
+    retries: process.env.CI ? 1 : 0,
     workers: 1,
-    reporter: 'html',
+    reporter: [['list'], ['html'], ['json', { outputFile: 'test-results/results.json' }]],
 
     use: {
-        baseURL: 'https://eventwise.synergi.dev',
+        baseURL: process.env.BASE_URL || 'https://eventwise.synergi.dev',
         storageState: 'auth.json',
         screenshot: 'only-on-failure',
         trace: 'retain-on-failure',
-        headless: false,
+        headless: process.env.HEADED !== 'true',
         navigationTimeout: 30000,
         actionTimeout: 15000,
         viewport: { width: 1920, height: 1080 },
-        launchOptions: {
-            args: ['--start-maximized'],
-        },
     },
 
     projects: [
         {
             name: 'chromium',
+            testIgnore: '**/visual/**',
             use: {
                 ...devices['Desktop Chrome'],
                 viewport: { width: 1920, height: 1080 },  // override devices' default 1280×720

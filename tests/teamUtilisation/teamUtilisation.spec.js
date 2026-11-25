@@ -5,8 +5,9 @@
 // There are no manual test cases for this module, so the checks are the page's own arithmetic (remaining days,
 // capacity, status bands, the summary tiles against the table) and consistency between the pages.
 import { test, expect } from '../../fixtures/baseTest.js';
+import { BASE_URL } from '../../pages/env.js';
 
-const ACCOUNT_URL = `https://eventwise.synergi.dev/account/${process.env.UTILISATION_ACCOUNT_ID ?? '14'}`;
+const ACCOUNT_URL = `${BASE_URL}/account/${process.env.UTILISATION_ACCOUNT_ID ?? '14'}`;
 const RESOURCE_URL = `${ACCOUNT_URL}/utilisation`;
 const TIME_LOGS_URL = `${ACCOUNT_URL}/utilisation/time-logs`;
 const TASKS_URL = `${ACCOUNT_URL}/utilisation/tasks`;

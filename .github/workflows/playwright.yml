@@ -1,27 +1,105 @@
-name: Playwright Tests
+name: Playwright Regression
+
 on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
+  schedule:
+    - cron: '0 20 * * 4,0'
+  workflow_dispatch:
+    inputs:
+      only:
+        description: 'Optional comma-separated regression stages'
+        required: false
+        type: string
+        default: ''
+
 jobs:
-  test:
-    timeout-minutes: 60
-    runs-on: ubuntu-latest
+  regression:
+    timeout-minutes: 120
+    runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
-      with:
-        node-version: lts/*
-    - name: Install dependencies
-      run: npm ci
-    - name: Install Playwright Browsers
-      run: npx playwright install --with-deps
-    - name: Run Playwright tests
-      run: npx playwright test
-    - uses: actions/upload-artifact@v4
-      if: ${{ !cancelled() }}
-      with:
-        name: playwright-report
-        path: playwright-report/
-        retention-days: 30
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install chromium
+
+      - name: Create test environment
+        shell: pwsh
+        env:
+          USER_EMAIL: ${{ secrets.USER_EMAIL }}
+          USER_PASSWORD: ${{ secrets.USER_PASSWORD }}
+          QA_EMAIL: ${{ secrets.QA_EMAIL }}
+          APPROVALS_EVENT_URL: ${{ secrets.APPROVALS_EVENT_URL }}
+          BUDGET_EVENT_URL: ${{ secrets.BUDGET_EVENT_URL }}
+          BVA_EVENT_URL: ${{ secrets.BVA_EVENT_URL }}
+          DASHBOARD_EVENT_URL: ${{ secrets.DASHBOARD_EVENT_URL }}
+          ENSURE_TICKETS_EVENT_URL: ${{ secrets.ENSURE_TICKETS_EVENT_URL }}
+          EVENT_SETTINGS_TEST_EVENT_URL: ${{ secrets.EVENT_SETTINGS_TEST_EVENT_URL }}
+          EXISTING_EVENT_URL: ${{ secrets.EXISTING_EVENT_URL }}
+          INVOICE_EVENT_URL: ${{ secrets.INVOICE_EVENT_URL }}
+          KPI_CLOSED_EVENT_URL: ${{ secrets.KPI_CLOSED_EVENT_URL }}
+          KPI_EVENT_URL: ${{ secrets.KPI_EVENT_URL }}
+          PRICE_PER_HEAD_EVENT_URL: ${{ secrets.PRICE_PER_HEAD_EVENT_URL }}
+          PURCHASING_EVENT_URL: ${{ secrets.PURCHASING_EVENT_URL }}
+          REVENUE_EVENT_URL: ${{ secrets.REVENUE_EVENT_URL }}
+          REVENUE_TICKETS_EVENT_URL: ${{ secrets.REVENUE_TICKETS_EVENT_URL }}
+          TICKETING_BULK_ENTRY_URL: ${{ secrets.TICKETING_BULK_ENTRY_URL }}
+          TICKETING_EVENT_URL: ${{ secrets.TICKETING_EVENT_URL }}
+          TICKETING_REGRESSION_EVENT_URL: ${{ secrets.TICKETING_REGRESSION_EVENT_URL }}
+          TICKETING_TEST_EVENT_URL: ${{ secrets.TICKETING_TEST_EVENT_URL }}
+          EVENT_SETTINGS_EVENT_URL: ${{ secrets.EVENT_SETTINGS_EVENT_URL }}
+          UTILISATION_TEAM_MEMBER: ${{ vars.UTILISATION_TEAM_MEMBER }}
+        run: |
+          @(
+            "BASE_URL=https://eventwise.synergi.dev"
+            "USER_EMAIL=$env:USER_EMAIL"
+            "USER_PASSWORD=$env:USER_PASSWORD"
+            "QA_EMAIL=$env:QA_EMAIL"
+            "APPROVALS_EVENT_URL=$env:APPROVALS_EVENT_URL"
+            "BUDGET_EVENT_URL=$env:BUDGET_EVENT_URL"
+            "BVA_EVENT_URL=$env:BVA_EVENT_URL"
+            "DASHBOARD_EVENT_URL=$env:DASHBOARD_EVENT_URL"
+            "ENSURE_TICKETS_EVENT_URL=$env:ENSURE_TICKETS_EVENT_URL"
+            "EVENT_SETTINGS_TEST_EVENT_URL=$env:EVENT_SETTINGS_TEST_EVENT_URL"
+            "EXISTING_EVENT_URL=$env:EXISTING_EVENT_URL"
+            "INVOICE_EVENT_URL=$env:INVOICE_EVENT_URL"
+            "KPI_CLOSED_EVENT_URL=$env:KPI_CLOSED_EVENT_URL"
+            "KPI_EVENT_URL=$env:KPI_EVENT_URL"
+            "PRICE_PER_HEAD_EVENT_URL=$env:PRICE_PER_HEAD_EVENT_URL"
+            "PURCHASING_EVENT_URL=$env:PURCHASING_EVENT_URL"
+            "REVENUE_EVENT_URL=$env:REVENUE_EVENT_URL"
+            "REVENUE_TICKETS_EVENT_URL=$env:REVENUE_TICKETS_EVENT_URL"
+            "TICKETING_BULK_ENTRY_URL=$env:TICKETING_BULK_ENTRY_URL"
+            "TICKETING_EVENT_URL=$env:TICKETING_EVENT_URL"
+            "TICKETING_REGRESSION_EVENT_URL=$env:TICKETING_REGRESSION_EVENT_URL"
+            "TICKETING_TEST_EVENT_URL=$env:TICKETING_TEST_EVENT_URL"
+            "EVENT_SETTINGS_EVENT_URL=$env:EVENT_SETTINGS_EVENT_URL"
+            "UTILISATION_TEAM_MEMBER=$env:UTILISATION_TEAM_MEMBER"
+          ) | Set-Content -Path .env -Encoding utf8
+
+      - name: Run full regression
+        shell: pwsh
+        env:
+          ONLY: ${{ inputs.only }}
+        run: |
+          if ($env:ONLY) {
+            npm run test:fullRegression -- "--only=$env:ONLY"
+          } else {
+            npm run test:fullRegression
+          }
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-regression-reports
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14

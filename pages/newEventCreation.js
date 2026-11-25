@@ -1,5 +1,6 @@
 import { expect } from '@playwright/test';
 import { regressionAccountName } from './accountConfig.js';
+import { BASE_URL } from './env.js';
 
 
 export class newEventCreation {
@@ -13,7 +14,7 @@ export class newEventCreation {
 
     async gotoLoginPage() {
         await this.page.context().clearCookies();
-        await this.page.goto('https://eventwise.synergi.dev/auth/login');
+        await this.page.goto(`${BASE_URL}/auth/login`);
         await this.page.waitForLoadState('domcontentloaded');
     }
 
@@ -26,7 +27,7 @@ export class newEventCreation {
     }
 
     async gotoOnboardingPage() {
-        await this.page.goto('https://eventwise.synergi.dev/onboarding');
+        await this.page.goto(`${BASE_URL}/onboarding`);
         await this.page.waitForLoadState('networkidle');
         await this.page.getByRole('button', { name: regressionAccountName }).click();
         await this.page.waitForLoadState('domcontentloaded');

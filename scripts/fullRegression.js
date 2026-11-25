@@ -10,6 +10,7 @@
 // Each stage gets its own HTML report and test-results folder so the second run
 // doesn't wipe the first one's artifacts.
 import { spawnSync } from 'child_process';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -45,7 +46,7 @@ function runPlaywright(specs, stage, extraEnv = {}) {
     if (DRY_RUN) return 0;
     const result = spawnSync('npx', [
         'playwright', 'test', ...specs,
-        '--reporter=list,html',
+        '--reporter=list,html,json',
         `--output=test-results/${stage}`,
     ], {
         stdio: 'inherit',
@@ -55,6 +56,7 @@ function runPlaywright(specs, stage, extraEnv = {}) {
             ...extraEnv,
             PLAYWRIGHT_HTML_OUTPUT_DIR: `playwright-report/${stage}`,
             PLAYWRIGHT_HTML_OPEN: 'never',
+            PLAYWRIGHT_JSON_OUTPUT_FILE: `test-results/${stage}/results.json`,
         },
     });
     return result.status ?? 1;
@@ -157,15 +159,55 @@ stage('account-entries', ['tests/accountEntries.spec.js'], {});
 stage('account-settings', ['tests/accountSettings/'], followUpEnv);
 stage('team-utilisation', ['tests/teamUtilisation/'], {});
 
-const failed = Object.entries(statuses).filter(([, status]) => status !== 0).map(([name]) => name);
 if (Object.keys(statuses).length === 0) {
     console.error(`✖ No stage ran. Valid names: ${VALID_STAGES.join(', ')}`);
     process.exit(1);
 }
+
+if (!DRY_RUN) {
+    const summary = {};
+    for (const [name, status] of Object.entries(statuses)) {
+        const reportPath = `test-results/${name}/results.json`;
+        const counts = { pass: 0, fail: 0, 'expected-fail': 0, skipped: 0 };
+        if (!existsSync(reportPath)) {
+            console.error(`✖ JSON report missing for stage "${name}" at ${reportPath}`);
+            statuses[name] = 1;
+            summary[name] = { ...counts, reportError: `JSON report missing; stage exit code ${status}` };
+            continue;
+        }
+
+        const report = JSON.parse(readFileSync(reportPath, 'utf8'));
+        const countTests = suites => {
+            for (const suite of suites ?? []) {
+                for (const spec of suite.specs ?? []) {
+                    for (const test of spec.tests ?? []) {
+                        if (test.status === 'skipped' || test.expectedStatus === 'skipped') {
+                            counts.skipped++;
+                        } else if (test.status === 'expected' && test.expectedStatus === 'failed') {
+                            counts['expected-fail']++;
+                        } else if (test.status === 'expected' && test.expectedStatus === 'passed') {
+                            counts.pass++;
+                        } else {
+                            counts.fail++;
+                        }
+                    }
+                }
+                countTests(suite.suites);
+            }
+        };
+        countTests(report.suites);
+        summary[name] = counts;
+    }
+
+    mkdirSync('test-results', { recursive: true });
+    writeFileSync('test-results/summary.json', `${JSON.stringify(summary, null, 2)}\n`);
+}
+
+const updatedFailed = Object.entries(statuses).filter(([, status]) => status !== 0).map(([name]) => name);
 console.log(`\nReports: ${Object.keys(statuses).map(name => `playwright-report/${name}`).join(', ')}`);
 if (DRY_RUN) {
     console.log('\nDry run: nothing executed');
 } else {
-    console.log(failed.length ? `\n✖ Stages with failures: ${failed.join(', ')}` : '\n✔ Every stage passed');
+    console.log(updatedFailed.length ? `\n✖ Stages with failures: ${updatedFailed.join(', ')}` : '\n✔ Every stage passed');
 }
-process.exit(failed.length ? 1 : 0);
+process.exit(updatedFailed.length ? 1 : 0);

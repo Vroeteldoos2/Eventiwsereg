@@ -1,6 +1,7 @@
 import { expect } from '@playwright/test';
 import { newEventCreation } from './newEventCreation.js';
 import { regressionAccountName } from './accountConfig.js';
+import { BASE_URL } from './env.js';
 
 export class DashboardPage {
 
@@ -25,7 +26,7 @@ export class DashboardPage {
     // ── NAVIGATION ────────────────────────────────────────────────────────────────
 
     async navigateToEvent(searchTerm) {
-        await this.page.goto('https://eventwise.synergi.dev/onboarding');
+        await this.page.goto(`${BASE_URL}/onboarding`);
         await this.page.waitForLoadState('networkidle');
 
         const accountBtn = this.page.getByRole('button', { name: regressionAccountName });

@@ -3,8 +3,9 @@
 // Read-only: nothing is created, approved or changed. Event 196 (AutoCopyEvent_713148) is the reference event
 // for the event filters.
 import { test, expect } from '../fixtures/baseTest.js';
+import { BASE_URL } from '../pages/env.js';
 
-const ACCOUNT_URL = `https://eventwise.synergi.dev/account/${process.env.ENTRIES_ACCOUNT_ID ?? '14'}`;
+const ACCOUNT_URL = `${BASE_URL}/account/${process.env.ENTRIES_ACCOUNT_ID ?? '14'}`;
 const ENTRIES_URL = `${ACCOUNT_URL}/entries`;
 const EVENT = process.env.ENTRIES_EVENT_NAME ?? 'AutoCopyEvent_713148'; // event 196
 

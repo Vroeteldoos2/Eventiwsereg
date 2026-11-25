@@ -1,5 +1,6 @@
 import { expect } from '@playwright/test';
 import { regressionAccountName, regressionAccountUrl } from './accountConfig.js';
+import { BASE_URL } from './env.js';
 
 export class TeamMembersPage {
     constructor(page) {
@@ -23,7 +24,7 @@ export class TeamMembersPage {
 
     async gotoOnboardingPage() {
         if (!this.page.url().includes('/onboarding')) {
-            await this.page.goto('https://eventwise.synergi.dev/onboarding');
+            await this.page.goto(`${BASE_URL}/onboarding`);
         }
         await this.page.waitForLoadState('networkidle');
         await this.page.getByRole('button', { name: regressionAccountName }).click();

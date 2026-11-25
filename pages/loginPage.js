@@ -1,5 +1,6 @@
 import { expect } from '@playwright/test';
 import { regressionAccountName } from './accountConfig.js';
+import { BASE_URL } from './env.js';
 
 
 export class LoginPage {
@@ -30,7 +31,7 @@ export class LoginPage {
 
     // Check if variables are actually there
     if (!email || !pass) {
-        throw new Error(`Environment variables missing! Email: ${email}, Pass: ${pass}`);
+        throw new Error('Environment variables USER_EMAIL and USER_PASSWORD must be set.');
     }
         await this.emailAddress.fill(email);
         await this.password.fill(pass);
@@ -42,14 +43,14 @@ export class LoginPage {
 
 
     //     if (!this.page.url().includes('/onboarding')) {
-    //         await this.page.goto('https://eventwise.synergi.dev/onboarding'); // redirect not to go back to the last visted events page after login, but to the onboarding page instead
+    //         await this.page.goto(`${BASE_URL}/onboarding`); // redirect not to go back to the last visited events page after login, but to the onboarding page instead
     //     }
     // }
 
    async gotoEventDashboardPage() {
     // Step 1: Force onboarding page
     if (!this.page.url().includes('/onboarding')) {
-        await this.page.goto('https://eventwise.synergi.dev/onboarding');
+        await this.page.goto(`${BASE_URL}/onboarding`);
     }
     await this.page.waitForLoadState('networkidle');
 

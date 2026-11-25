@@ -46,7 +46,8 @@ Playwright-EW/
 ├─ fixtures/ticket-import-template.csv  # Test data file used by ticketing import tests
 ├─ global-setup.js         # Logs in once, saves session to auth.json
 ├─ playwright.config.js
-├─ .env                    # Credentials, target URLs, test data (not committed)
+├─ .env.example            # Safe template for credentials, target URLs and test data
+├─ .env                    # Local credentials, target URLs and test data (not committed)
 └─ auth.json               # Saved login session (git-ignored, regenerated per run)
 ```
 
@@ -57,27 +58,29 @@ Key settings and why they're set this way:
 - **`globalSetup: './global-setup.js'`** — runs once before the whole suite,
   logs into the app, and writes the session to `auth.json`. Every test then
   starts already authenticated (see §4).
-- **`baseURL: 'https://eventwise.synergi.dev'`** — lets page objects use
-  relative `page.goto('/auth/login')` where convenient.
+- **`baseURL: process.env.BASE_URL`** — defaults to `https://eventwise.synergi.dev`; lets page objects use
+  relative `page.goto('/auth/login')` where convenient. Direct navigation URLs use the shared `pages/env.js` value.
 - **`storageState: 'auth.json'`** — every browser context loads the saved
   session instead of logging in per test.
 - **`workers: 1`** — tests run serially, not in parallel. The suite drives a
   shared staging event/account, so concurrent runs would race on the same
   data.
-- **`headless: false`** — tests run with a visible browser by default
-  (matches the `--headed` flags baked into the npm scripts).
+- **`fullyParallel: false`** — specs do not run concurrently against the shared event.
+- **Headless by default** — set `HEADED=true` or use `npm run test:headed` for local debugging.
 - **`viewport: { width: 1920, height: 1080 }`** — fixed desktop viewport,
   important for the visual regression suite where screenshot dimensions
   must be reproducible.
 - **`screenshot: 'only-on-failure'`, `trace: 'retain-on-failure'`** — failure
   artifacts are kept; passing runs don't accumulate debug output.
-- **`reporter: 'html'`** — view results with `npm run report`.
+- **Reporters** — list, HTML and JSON; full-regression stages save JSON separately and write counts to
+  `test-results/summary.json`.
+- **Retries** — one retry in CI, none locally.
+- **Visual project** — excluded from the default Chromium run and invoked separately with `npm run test:visual`.
 
 ## 4. Authentication flow
 
-1. `global-setup.js` launches a headless browser, goes to `/auth/login`,
-   fills `USER_EMAIL` / `USER_PASSWORD` from `.env`, logs in, and calls
-   `context.storageState({ path: 'auth.json' })`.
+1. `global-setup.js` requires `USER_EMAIL` / `USER_PASSWORD`, launches a headless browser, goes to `/auth/login`,
+   waits for the login form and authenticated account button, and calls `context.storageState({ path: 'auth.json' })`.
 2. `playwright.config.js` sets `use.storageState: 'auth.json'`, so **every**
    test context (in every spec file) starts already logged in — no test
    needs to call `login()` itself unless it's specifically testing the login
@@ -162,17 +165,19 @@ npx playwright test
 # One spec file
 npx playwright test tests/budgeting/budgetingTotals.spec.js
 
-# Named npm shortcuts (see package.json) — all run headed
+# Named npm shortcuts (see package.json) — headless by default
 npm run test:budgeting
 npm run test:ticketing
 npm run test:eventDashboard
+npm run test:headed       # visible browser for local debugging
+npm run test:visual       # visual project only
 npm run test:fullRegression   # every suite against an existing event (no event is created)
 npm run test:fullRegression -- --event=<event url>   # pick the event; default is EXISTING_EVENT_URL / PURCHASING_EVENT_URL in .env
 npm run test:fullRegression -- --dry-run             # list the stages, run nothing
 
 # Visual regression suite
-npx playwright test tests/visual/
-npx playwright test tests/visual/ --update-snapshots   # after an intended UI change
+npm run test:visual
+npx playwright test --config=playwright.visual.config.js --update-snapshots   # after an intended UI change
 
 # View the last HTML report
 npm run report

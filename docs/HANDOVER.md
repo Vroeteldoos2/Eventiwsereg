@@ -43,8 +43,7 @@ npm install
 npx playwright install chromium      # first time only
 ```
 
-The `.env` file in the root folder holds the login and the event URLs (section 5). It is already set up for the
-test login and the test events.
+Create a local `.env` from `.env.example` and set the test login and event URLs. Never commit real credentials.
 
 **Run everything (full regression):**
 
@@ -60,6 +59,8 @@ npm run test:fullRegression -- --only=budgeting,kpi   # just those stages
 npm run test:fullRegression -- --event=<event url>    # run against a different event
 npm run test:budgeting                                # one module (see package.json for all of them)
 npx playwright test tests/kpi/kpi.spec.js             # one spec file
+npm run test:headed                                    # run the default suite with a visible browser
+npm run test:visual                                     # run the visual regression project
 npm run report                                        # open the last HTML report
 ```
 
@@ -67,7 +68,8 @@ A normal run of the full regression takes real actions in the app (creates and d
 Use `--dry-run` first if you only want to check what would run.
 
 After a full run, reports are in `playwright-report/<stage>/` (one per stage) and failure screenshots and traces are in
-`test-results/<stage>/`. Both folders are generated, so they can be deleted at any time.
+`test-results/<stage>/`. Each stage also writes `results.json`; the runner writes per-stage counts to
+`test-results/summary.json`. These folders are generated, so they can be deleted at any time.
 
 ---
 
@@ -79,10 +81,12 @@ After a full run, reports are in `playwright-report/<stage>/` (one per stage) an
   Specs call these methods and stay readable.
 - **Fixtures.** `fixtures/baseTest.js` extends Playwright's `test`, so a spec just asks for
   `{ budgetingPage, ticketingPage, ... }`. Specs import `test` and `expect` from this file.
-- **One worker.** `playwright.config.js` sets `workers: 1`. The tests share one staging account and event, so running
+- **One worker.** `playwright.config.js` sets `workers: 1` and `fullyParallel: false`. The tests share one staging account and event, so running
   them in parallel would make them interfere with each other.
 - **Env-driven.** Each module reads its own event URL from `.env`, so the same tests can point at any event.
-- **Reporting.** Each stage of the full regression has its own HTML report; failures keep a screenshot and trace.
+- **Reporting.** Each stage of the full regression has HTML and JSON reports; failures keep a screenshot and trace.
+- **Base URL.** `BASE_URL` defaults to `https://eventwise.synergi.dev`; set it to point the suite at another deployment.
+- **Visual tests.** The default run excludes `tests/visual/`; use `npm run test:visual` to run them separately.
 
 ### Folder layout
 
@@ -97,7 +101,8 @@ scripts/fullRegression.js   The full regression runner
 docs/                  This document and FRAMEWORK-SETUP.md
 global-setup.js        Logs in once and saves auth.json
 playwright.config.js   Runner settings (timeouts, viewport, reporter)
-.env                   Login, event URLs and test data (see section 5)
+.env.example           Safe template for environment variables (see section 5)
+.env                   Local login, event URLs and test data; never commit credentials
 ```
 
 ---
@@ -116,6 +121,13 @@ playwright.config.js   Runner settings (timeouts, viewport, reporter)
 | `REVENUE_CUSTOMER`, `REVENUE_INVOICE_EMAIL` | Customer and email used by the revenue and invoice tests |
 | `REGRESSION_EVENT_NAME` | Optional. The account dashboard tests filter the event list to this event |
 | `REGRESSION_TAX_RATE` | Tax rate chosen during ticket setup |
+| `QA_EMAIL` | Email target for PO/KPI email checks and the account reply-to preference |
+| `UTILISATION_TEAM_MEMBER` | Team member used by the utilisation time-log comparison |
+| `BASE_URL` | Application base URL; defaults to `https://eventwise.synergi.dev` |
+
+See `.env.example` for the complete variable list and safe placeholders. GitHub Actions reads login and event URL values
+from repository secrets and runs on Windows; scheduled runs are Thursday and Sunday at 20:00 UTC, with optional
+comma-separated stages on manual dispatch.
 
 Notes:
 - The customer is `Muddles LTd` on purpose. It is **not linked to Xero**, so tests do not push invoices to Xero.
@@ -152,9 +164,9 @@ Each row is a stage in the full regression (`--only=<stage>`), its spec location
 | `team-utilisation` | `tests/teamUtilisation/` | Team utilisation |
 
 **Not part of the full regression:** the visual tests in `tests/visual/` (screenshot comparison of the Budget Summary,
-cost and revenue budgets, ticketing dashboard and revenue dashboard). Run them with
-`npx playwright test tests/visual/`. Baseline images are in the `*-snapshots` folders next to each spec. After an
-intended UI change, update them with `npx playwright test tests/visual/ --update-snapshots`.
+cost and revenue budgets, ticketing dashboard and revenue dashboard). Run them with `npm run test:visual`.
+Baseline images are in the `*-snapshots` folders next to each spec. After an intended UI change, update them with
+`npx playwright test --config=playwright.visual.config.js --update-snapshots`.
 
 **Skipped tests:** a few tests are marked `test.skip` (for example some Event Dashboard shortcuts and some budget entry
 and revenue tests). They are known to need changes or are waiting on app fixes. Search for `test.skip` to list them.
@@ -211,9 +223,8 @@ once the app is fixed. Status is as of the last check, so re-test before raising
     tickets for ...". The helpers accept both.
 - **Analytics:** Playwright sets `navigator.webdriver = true`, so the app's PostHog analytics does not record
   automation visits. This was checked and left as it is.
-- Tests run in a visible browser (`headless: false`) at 1920x1080. Change this in `playwright.config.js` for CI.
-- The GitHub Actions file (`.github/workflows/playwright.yml`, only relevant if the code goes back into a repository)
-  runs `npx playwright test` directly, not the full regression runner, and does not provide the `.env` values.
+- Tests run headless by default at 1920x1080. Use `HEADED=true` or `npm run test:headed` for local debugging.
+- GitHub Actions runs the full regression on Windows and uploads reports and test results for 14 days.
 
 ---
 
