@@ -1,9 +1,16 @@
-import { test, expect } from '@playwright/test';
-import { setupBudgetingTest } from '../utils/setup';
+import { test, expect } from '../../fixtures/baseTest.js';
+import { setupBudgetingTest } from '../utils/setup.js';
 
 let loginPage, budgetingPage;
+let createdEntryTitles = [];
+
+function trackEntryTitle(title) {
+    if (!title.startsWith('AutoTest-')) throw new Error(`Unexpected cleanup title: ${title}`);
+    createdEntryTitles.push(title);
+}
 
 async function createDraftCostEntry(page, budgetingPage, title) {
+    trackEntryTitle(title);
     await budgetingPage.openDepartmentBudgetEntries(0);
 
     const createRow = page.getByRole('row', { name: '󱩨 Create a new budget entry', exact: true });
@@ -32,7 +39,7 @@ async function createDraftCostEntry(page, budgetingPage, title) {
 
 async function deleteBudgetEntry(page, budgetingPage, title) {
     const drawer = budgetingPage.getDrawer();
-    if (!(await drawer.isVisible().catch(() => false))) {
+    if (!(await drawer.isVisible())) {
         await budgetingPage.openEntryPopup(title);
     }
 
@@ -41,7 +48,7 @@ async function deleteBudgetEntry(page, budgetingPage, title) {
     await page.getByRole('button', { name: /Delete/i }).last().click();
     await expect(drawer).toBeHidden({ timeout: 15000 });
     await page.reload({ waitUntil: 'domcontentloaded' });
-    await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    await budgetingPage.waitForLoadingOverlay();
     await budgetingPage.openDepartmentBudgetEntries(0);
     const createRow = page.getByRole('row', { name: '󱩨 Create a new budget entry', exact: true });
     const table = createRow.locator('xpath=ancestor::table').last();
@@ -66,10 +73,17 @@ async function openRechargeForm(page, budgetingPage, title) {
 test.describe('Cost Budget Entry', () => {
 
     test.beforeEach(async ({ page }) => {
+        createdEntryTitles = [];
         ({ loginPage, budgetingPage } = await setupBudgetingTest(page));
         await budgetingPage.gotoBudgetSummaryPage();
         await budgetingPage.selectBudgetVersion('A');
         await budgetingPage.expandAllSections();
+    });
+
+    test.afterEach(async () => {
+        for (const title of [...new Set(createdEntryTitles)].reverse()) {
+            await budgetingPage.deleteEntryWithPurchaseOrder(title);
+        }
     });
 
     test.skip('Create and approve budget entry via request approval flow', async () => {
@@ -81,6 +95,7 @@ test.describe('Cost Budget Entry', () => {
 
         // ── 2. Create a new budget entry ──────────────────────────────────────
         const entryTitle = `AutoTest-${Date.now().toString().slice(-3)}`;
+        trackEntryTitle(entryTitle);
         await budgetingPage.createBudgetEntry({
             title: entryTitle,
             subcategory: process.env.BUDGET_SUBCATEGORY,
@@ -272,6 +287,7 @@ test.describe('Cost Budget Entry', () => {
         await amounts.nth(3).fill('100');
         await form.getByRole('button', { name: 'Create Recharge' }).click();
 
+        trackEntryTitle(`${title} Recharge from`);
         await expect(form).toBeHidden({ timeout: 15000 });
         await budgetingPage.openEntryPopup(title);
         const drawer = budgetingPage.getDrawer();
@@ -284,7 +300,7 @@ test.describe('Cost Budget Entry', () => {
         ))).toBeVisible({ timeout: 15000 });
 
         await page.reload({ waitUntil: 'domcontentloaded' });
-        await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+        await budgetingPage.waitForLoadingOverlay();
         await budgetingPage.openDepartmentBudgetEntries(0);
         const rechargeApprovalEntry = page.locator('tr.tw-cursor-pointer')
             .filter({ hasText: `${title} Recharge from` }).first();
@@ -327,6 +343,7 @@ test.describe('Cost Budget Entry', () => {
         await expect(splitAmounts.nth(7)).toHaveValue('50');
 
         await form.getByRole('button', { name: 'Create Recharge' }).click();
+        trackEntryTitle(`${title} Recharge from`);
         await expect(form).toBeHidden({ timeout: 15000 });
         await budgetingPage.openEntryPopup(title);
         const drawer = budgetingPage.getDrawer();
@@ -339,7 +356,7 @@ test.describe('Cost Budget Entry', () => {
         ))).toBeVisible({ timeout: 15000 });
 
         await page.reload({ waitUntil: 'domcontentloaded' });
-        await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+        await budgetingPage.waitForLoadingOverlay();
         await budgetingPage.openDepartmentBudgetEntries(0);
         const rechargeApprovalEntry = page.locator('tr.tw-cursor-pointer')
             .filter({ hasText: `${title} Recharge from` }).first();
@@ -359,7 +376,7 @@ test.describe('Cost Budget Entry', () => {
             waitUntil: 'domcontentloaded',
             timeout: 60000,
         });
-        await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+        await budgetingPage.waitForLoadingOverlay();
 
         const departmentRow = page.locator('tr.tw-cursor-pointer').first();
         const departmentName = (await departmentRow.locator('h6, h5, h4, td, span').first().innerText()).trim();
@@ -397,6 +414,7 @@ test.describe('Cost Budget Entry', () => {
 
                  // ── 2. Create a new draft entry ───────────────────────────────────────
         const entryTitle = `AutoTest-${Date.now().toString().slice(-3)}`;
+        trackEntryTitle(entryTitle);
         await budgetingPage.createBudgetEntry({
             title: entryTitle,
             subcategory: process.env.BUDGET_SUBCATEGORY,
@@ -444,6 +462,7 @@ test.describe('Cost Budget Entry', () => {
 
         const runId = Date.now();
         const entryTitles = [`AutoTest-Bulk-${runId}-A`, `AutoTest-Bulk-${runId}-B`];
+        entryTitles.forEach(trackEntryTitle);
         const table = page.locator('table').filter({ hasText: 'Subcategory' }).last();
         const existingRow = table.locator('tbody tr.tw-cursor-pointer').first();
         await existingRow.waitFor({ state: 'visible', timeout: 15000 });
@@ -532,6 +551,7 @@ test.describe('Cost Budget Entry', () => {
 
         const runId = Date.now();
         const entryTitles = [`AutoTest-Bulk-Approve-${runId}-A`, `AutoTest-Bulk-Approve-${runId}-B`];
+        entryTitles.forEach(trackEntryTitle);
         const table = page.locator('table').filter({ hasText: 'Subcategory' }).last();
         const existingRow = table.locator('tbody tr.tw-cursor-pointer').first();
         await existingRow.waitFor({ state: 'visible', timeout: 15000 });
