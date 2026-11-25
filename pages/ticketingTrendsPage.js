@@ -28,13 +28,13 @@ export class TrendsPage {
     async selectPeriod(period) {
         await this.page.getByRole('button', { name: period, exact: true }).click();
         await expect(this.page.getByRole('heading', { name: `${period} Sales` })).toBeVisible({ timeout: 10000 });
-        await this.page.waitForTimeout(800);
+        await expect(this.page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 15000 });
     }
 
     // 'Sales' | 'Revenue'
     async selectView(view) {
         await this.page.locator('button').filter({ hasText: new RegExp(`^\\s*${view}\\s*$`) }).first().click();
-        await this.page.waitForTimeout(1000);
+        await expect(this.page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 15000 });
     }
 
     // ── SUMMARY ──────────────────────────────────────────────────────────────────
@@ -76,8 +76,10 @@ export class TrendsPage {
     }
 
     async setTargetSelected(name, selected) {
-        await this.targetRow(name).locator('input[type="checkbox"]').first().setChecked(selected, { force: true });
-        await this.page.waitForTimeout(1200);
+        const checkbox = this.targetRow(name).locator('input[type="checkbox"]').first();
+        await checkbox.setChecked(selected, { force: true });
+        if (selected) await expect(checkbox).toBeChecked();
+        else await expect(checkbox).not.toBeChecked();
     }
 
     async isTargetSelected(name) {
@@ -91,7 +93,7 @@ export class TrendsPage {
         await popper.waitFor({ state: 'visible', timeout: 5000 });
         const text = (await popper.innerText()).trim();
         await this.page.mouse.move(1000, 900);
-        await popper.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
+        await expect(popper).toBeHidden({ timeout: 5000 });
         return text;
     }
 
@@ -164,7 +166,7 @@ export class TrendsPage {
     async setBreakevenPriority(option) {
         const menu = await this.openBreakevenPriorityMenu();
         await menu.getByText(option, { exact: true }).click();
-        await this.page.waitForTimeout(1500);
+        await expect(this.priorityTrigger()).toContainText(option);
     }
 
     // ── DETAILED VIEW ────────────────────────────────────────────────────────────
@@ -242,15 +244,16 @@ export class TrendsPage {
     }
 
     async setTicketTypeSelected(picker, name, selected) {
-        await picker.locator('tr').filter({ hasText: name }).locator('input[type="checkbox"]').setChecked(selected, { force: true });
-        await this.page.waitForTimeout(700);
+        const checkbox = picker.locator('tr').filter({ hasText: name }).locator('input[type="checkbox"]');
+        await checkbox.setChecked(selected, { force: true });
+        if (selected) await expect(checkbox).toBeChecked();
+        else await expect(checkbox).not.toBeChecked();
     }
 
     // Only the X button closes the picker (Escape doesn't).
     async closeTicketTypePicker(picker) {
         await picker.locator('button.m-close').click();
         await picker.waitFor({ state: 'hidden', timeout: 10000 });
-        await this.page.waitForTimeout(1500);
     }
 
     // ── ANNOTATIONS ──────────────────────────────────────────────────────────────
@@ -271,14 +274,19 @@ export class TrendsPage {
     // Returns { x, y } with that dialog open, or null when there is no annotation point.
     async findAnnotationDot() {
         const box = await this.page.locator('canvas').first().boundingBox();
+        if (!box) throw new Error('Ticketing trends chart is not visible');
         const y = box.y + box.height * 0.6;
         const centre = box.x + box.width / 2;
         const title = this.page.getByText('Remove Annotation').first();
         for (let distance = 0; distance <= box.width / 2; distance += 6) {
             for (const x of distance === 0 ? [centre] : [centre + distance, centre - distance]) {
                 await this.page.mouse.click(x, y);
-                await this.page.waitForTimeout(60);
-                if (await title.isVisible()) return { x, y };
+                const found = await title.waitFor({ state: 'visible', timeout: 200 })
+                    .then(() => true, error => {
+                        if (error.name === 'TimeoutError') return false;
+                        throw error;
+                    });
+                if (found) return { x, y };
             }
         }
         return null;
