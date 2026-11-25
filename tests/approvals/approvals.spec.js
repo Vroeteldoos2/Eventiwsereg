@@ -36,8 +36,7 @@ test.describe('Approvals', () => {
         const titles = createdEntries.splice(0);
         if (!CLEANUP) return;
         for (const title of titles) {
-            await budgetingPage.deleteEntryWithPurchaseOrder(title)
-                .catch(error => console.log(`⚠️ Clean-up of ${title} failed: ${error.message.split('\n')[0]}`));
+            await budgetingPage.deleteEntryWithPurchaseOrder(title);
         }
     });
 
@@ -170,7 +169,7 @@ test.describe('Approvals', () => {
         });
     });
 
-    test('Payruns: the Approvals list shows the event payruns awaiting approval, as the account-wide list does', async ({ page }) => {
+    test('Payruns: the Approvals list shows the event payruns awaiting approval, as the account-wide list does', async ({ page, purchasingPage }) => {
         await approvals.goto('payruns');
         const rows = await approvals.readRows();
         for (const row of rows) {
@@ -181,8 +180,8 @@ test.describe('Approvals', () => {
         }
 
         // The account-wide Approvals list has an Event column: this event's rows must be the same payruns.
-        await page.goto(EVENT_URL + '/purchasing', { waitUntil: 'domcontentloaded' });
-        await page.waitForTimeout(2000);
+        purchasingPage.eventBaseUrl = EVENT_URL;
+        await purchasingPage.gotoPurchasingSummary();
         const eventName = (await page.locator('body').innerText()).split('\n')[1].trim();
         const accountApprovals = new ApprovalsPage(page, ACCOUNT_URL);
         await accountApprovals.goto('payruns');
