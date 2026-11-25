@@ -2,7 +2,7 @@
 // Covers the standalone "Revenue" sidebar module (/revenue) — distinct from
 // Revenue Budget (a Budgeting sub-tab, see revenue.spec.js) and the
 // Ticketing Dashboard's own "£ Revenue" tab (see ticketing.spec.js).
-import { runVisualPages } from './visualHelpers.js';
+import { expect, runVisualPages } from './visualHelpers.js';
 
 const pages = [
     {
@@ -13,7 +13,8 @@ const pages = [
                 waitUntil: 'domcontentloaded',
                 timeout: 60000,
             });
-            await page.waitForLoadState('networkidle');
+            await expect(page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 30000 });
+            await expect(page.locator('table tbody tr').first()).toBeVisible({ timeout: 30000 });
         },
     },
 ];
