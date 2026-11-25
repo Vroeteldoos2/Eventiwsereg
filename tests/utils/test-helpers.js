@@ -23,16 +23,7 @@ export class TestHelpers {
     async clearUIOverlays() {
         // Move mouse to neutral zone
         await this.page.mouse.move(1000, 0);
-        // Explicitly wait for the loader to go away
-    const loader = this.page.locator('text=Loading Information');
-    if (await loader.isVisible()) {
-        await loader.waitFor({ state: 'hidden', timeout: 10000 });
-    }
-    
-    // Optional: Wait for the specific currency symbol to appear anywhere in the section
-    await this.page.waitForSelector('text=£', { timeout: 10000 }).catch(() => {
-        console.log("Currency symbols didn't appear in time.");
-    });
+        await expect(this.page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 10000 });
     }
 
     // 3. The Comparison & Screenshot Logic
