@@ -1,5 +1,5 @@
-import { test, expect } from '@playwright/test';
-import { setupBudgetingTest } from '../utils/setup';
+import { test, expect } from '../../fixtures/baseTest.js';
+import { setupBudgetingTest } from '../utils/setup.js';
 
 test.describe('Department Budget', () => {
     test('Set department budget persists after revisiting the department', async ({ page }) => {
