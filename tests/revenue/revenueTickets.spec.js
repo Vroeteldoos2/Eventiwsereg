@@ -84,9 +84,9 @@ test.describe('Revenue - Tickets stream', () => {
             .first();
         const otherName = (await otherStream.getByRole('heading').first().innerText()).trim();
         await page.reload({ waitUntil: 'domcontentloaded' });
-        await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+        await expect(section).toBeVisible({ timeout: 30000 });
         await otherStream.click();
-        await page.waitForTimeout(1500);
+        await expect(page.locator('tr.expanded-row').first()).toBeVisible({ timeout: 15000 });
         await expect(page.getByText(/Mode:/), `Mode selector should not show for ${otherName}`).toHaveCount(0);
 
         // …nor on the Budgeting Tickets stream.
@@ -96,7 +96,7 @@ test.describe('Revenue - Tickets stream', () => {
             .filter({ has: page.getByRole('heading', { name: 'Tickets', exact: true }) })
             .first()
             .click();
-        await page.waitForTimeout(1500);
+        await expect(page.locator('tr.expanded-row').first()).toBeVisible({ timeout: 15000 });
         await expect(page.getByText(/Mode:/), 'Mode selector should not show in Budgeting').toHaveCount(0);
     });
 
@@ -211,8 +211,7 @@ test.describe('Revenue - Tickets stream', () => {
 
             expect(consoleErrors, 'No console errors').toEqual([]);
         } finally {
-            await ticketingPage.deleteTicketTypes(EVENT_URL, ticket.name)
-                .catch(error => console.log(`⚠️ Could not delete ${ticket.name}: ${error.message}`));
+            await ticketingPage.deleteTicketTypes(EVENT_URL, ticket.name);
         }
     });
 });
