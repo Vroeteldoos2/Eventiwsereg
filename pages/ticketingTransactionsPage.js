@@ -13,8 +13,6 @@ export class TransactionsPage {
     async goto() {
         await this.ticketing.navigateToTicketingPage(getTicketingTestPageUrl('transactions'));
         await expect(this.page.getByText('Record Type', { exact: false }).first()).toBeVisible({ timeout: 20000 });
-        await this.page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
-        await this.page.waitForTimeout(1000);
         await this.page.mouse.move(1000, 900);
     }
 
