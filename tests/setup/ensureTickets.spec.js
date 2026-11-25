@@ -4,20 +4,16 @@
 // changed; if it has none, the "set your tickets up" window on the Tickets page is used to add the same three ticket
 // types the event-creation regression sets up (Earlybird, Main, VIP, with a Direct Sales seller).
 // Runs against ENSURE_TICKETS_EVENT_URL (falls back to TICKETING_TEST_EVENT_URL / PURCHASING_EVENT_URL).
-import { test, expect } from '@playwright/test';
-import { newEventCreation } from '../../pages/newEventCreation.js';
-import { EventSettingsPage } from '../../pages/eventSettingsPage.js';
+import { test, expect } from '../../fixtures/baseTest.js';
 
 const EVENT_URL = (process.env.ENSURE_TICKETS_EVENT_URL || process.env.TICKETING_TEST_EVENT_URL || process.env.PURCHASING_EVENT_URL || '').replace(/\/$/, '');
 
 // The ticketing tests import sales dated 12/06/2026 (fixtures/ticket-import-template.csv); the Monthly view starts at the
 // event's Project Start, so that has to be on or before the 1st of that month.
-test('The Project Start is early enough for the imported sales', async ({ page }) => {
+test('The Project Start is early enough for the imported sales', async ({ page, eventSettingsPage: settings }) => {
     test.setTimeout(120000);
     if (!EVENT_URL) throw new Error('ENSURE_TICKETS_EVENT_URL / TICKETING_TEST_EVENT_URL / PURCHASING_EVENT_URL is not set');
-    const settings = new EventSettingsPage(page);
     await settings.gotoGeneralSettings(EVENT_URL);
-    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
     const start = new Date(`${(await settings.projectStartInput.inputValue()).trim()} 12:00`);
     const needed = new Date(2026, 5, 1, 12);
     if (start <= needed) {
@@ -25,24 +21,22 @@ test('The Project Start is early enough for the imported sales', async ({ page }
         return;
     }
     await settings.setProjectStart(new Date(2026, 4, 1));
-    await page.waitForTimeout(2000);
     await settings.gotoGeneralSettings(EVENT_URL);
-    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
     await expect(settings.projectStartInput).toHaveValue('May 1, 2026');
     console.log('📅 Project Start set to May 1, 2026');
 });
 
-test('The event has tickets (they are added when there are none)', async ({ page }) => {
+test('The event has tickets (they are added when there are none)', async ({ page, newEventCreationPage }) => {
     test.setTimeout(240000);
     if (!EVENT_URL) throw new Error('ENSURE_TICKETS_EVENT_URL / TICKETING_TEST_EVENT_URL / PURCHASING_EVENT_URL is not set');
 
     await page.goto(`${EVENT_URL}/tickets/bulk`, { waitUntil: 'domcontentloaded' });
-    await page.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
     const noTickets = page.getByText("You haven't created any tickets just yet");
     const hasTickets = page.getByRole('button', { name: /expand all/i }).first();
     await expect(noTickets.or(hasTickets)).toBeVisible({ timeout: 30000 });
 
-    if (await hasTickets.isVisible().catch(() => false)) {
+    // This is the normal no-op path when the event already has ticket data.
+    if (await hasTickets.isVisible()) {
         console.log('🎟️ The event already has tickets — nothing to add');
         return;
     }
@@ -51,7 +45,7 @@ test('The event has tickets (they are added when there are none)', async ({ page
     const eventName = (await page.locator('body').innerText()).split('\n')[1].trim();
     await page.getByText('click here', { exact: true }).click();
 
-    const newEventPage = new newEventCreation(page);
+    const newEventPage = newEventCreationPage;
     await newEventPage.waitForTicketSetupModal();
     await expect(page.getByText(`Let's setup your tickets for ${eventName}`, { exact: false })).toBeVisible({ timeout: 10000 });
 
