@@ -19,8 +19,7 @@ let settings;
 // Settings are saved as they are changed; a reload shows what was really kept.
 async function reload(page) {
     await settings.gotoGeneralSettings(EVENT_URL);
-    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
-    await page.waitForTimeout(1500);
+    await expect(page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 20000 });
 }
 
 test.describe('Event Settings', () => {
@@ -29,7 +28,7 @@ test.describe('Event Settings', () => {
         test.setTimeout(240000);
         settings = new EventSettingsPage(page);
         await settings.gotoGeneralSettings(EVENT_URL);
-        await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+        await expect(page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 20000 });
     });
 
     // ── GENERAL SETTINGS ─────────────────────────────────────────────────────────
@@ -44,7 +43,6 @@ test.describe('Event Settings', () => {
             await settings.cityInput.fill(`AutoCity${suffix}`);
             await settings.cityInput.blur();
             await settings.waitForChangesSaved();
-            await page.waitForTimeout(1500);
 
             await reload(page);
             await expect(settings.nameInput).toHaveValue(`${original.name}_${suffix}`);
@@ -58,7 +56,6 @@ test.describe('Event Settings', () => {
             await settings.cityInput.fill(original.city);
             await settings.cityInput.blur();
             await settings.waitForChangesSaved();
-            await page.waitForTimeout(1500);
             await reload(page);
             await expect(settings.nameInput, 'Name restored').toHaveValue(original.name);
         }
@@ -69,14 +66,12 @@ test.describe('Event Settings', () => {
         try {
             for (const status of ['TBC', 'Confirmed', 'Draft']) {
                 await settings.setStatus(status);
-                await page.waitForTimeout(1200);
                 await reload(page);
-                expect(await settings.statusSelect.locator('option:checked').innerText(), `Status after reload`).toBe(status);
+                await expect(settings.statusSelect).toHaveValue(status);
                 await expect(page.getByText('Something went wrong'), 'No error').toHaveCount(0);
             }
         } finally {
             await settings.setStatus(original);
-            await page.waitForTimeout(1200);
             await reload(page);
             await expect(settings.statusSelect, 'Status restored').toHaveValue(original);
         }
@@ -98,12 +93,10 @@ test.describe('Event Settings', () => {
         const original = await settings.defaultMarkupInput.inputValue();
         try {
             await settings.setDefaultMarkup('7.5');
-            await page.waitForTimeout(1500);
             await reload(page);
             expect(Number(await settings.defaultMarkupInput.inputValue()), 'Default markup after reload').toBeCloseTo(7.5, 2);
         } finally {
             await settings.setDefaultMarkup(original || '0');
-            await page.waitForTimeout(1500);
             await reload(page);
             expect(Number(await settings.defaultMarkupInput.inputValue()), 'Default markup restored').toBeCloseTo(Number(original || 0), 2);
         }
@@ -123,14 +116,12 @@ test.describe('Event Settings', () => {
         try {
             for (const type of ['Nominal', 'Percentage']) {
                 await settings.selectContingencyType(type);
-                await page.waitForTimeout(1200);
                 await reload(page);
                 expect(await active(), `Contingency type after reload`).toBe(type);
                 await expect(page.getByText('Something went wrong'), 'No error').toHaveCount(0);
             }
         } finally {
             await settings.selectContingencyType(original);
-            await page.waitForTimeout(1200);
             await reload(page);
             expect(await active(), 'Contingency type restored').toBe(original);
         }
@@ -138,17 +129,17 @@ test.describe('Event Settings', () => {
 
     test('Xero: the tracking option can be selected', async ({ page }) => {
         const box = () => page.getByText('Tracking Option', { exact: true }).locator('xpath=following::div[contains(@class,"eventwise-selector")][1]');
-        const current = async () => (await box().locator('.selector-option').innerText().catch(() => '')).trim();
+        const current = async () => (await box().locator('.selector-option').innerText()).trim();
         // The list offers the other options (not the one already selected).
         const choose = async wanted => {
             await box().locator('[contenteditable="true"]').click();
-            await page.waitForTimeout(1000);
             const options = page.locator('.selector-dropdown a');
             const option = wanted ? options.filter({ hasText: wanted }).first() : options.first();
             await option.waitFor({ state: 'visible', timeout: 10000 });
             const chosen = (await option.innerText()).trim();
             await option.click();
-            await page.waitForTimeout(1500);
+            await expect(box().locator('.selector-option')).toHaveText(chosen);
+            await settings.waitForChangesSaved();
             return chosen;
         };
         const original = await current();
@@ -177,7 +168,7 @@ test.describe('Event Settings', () => {
             await settings.openAddTags();
             await settings.selectTag(tag);
             await page.keyboard.press('Escape');
-            await page.waitForTimeout(1500);
+            await settings.waitForChangesSaved();
             await reload(page);
             await expect(tagsCard.getByText(tag, { exact: true }), 'Assigned tag shown under Tags').toBeVisible();
         } finally {
@@ -185,7 +176,7 @@ test.describe('Event Settings', () => {
             const checkbox = settings.tagOption(tag).locator('input[type="checkbox"]');
             if (await checkbox.isChecked()) await checkbox.uncheck();
             await page.keyboard.press('Escape');
-            await page.waitForTimeout(1500);
+            await settings.waitForChangesSaved();
             await reload(page);
             await expect(tagsCard.getByText(tag, { exact: true }), 'Tag removed again').toHaveCount(0);
         }
@@ -215,8 +206,8 @@ test.describe('Event Settings', () => {
         const checkbox = () => page.locator('label').filter({ hasText: new RegExp(`^\\s*${subcategory}\\s*$`) }).locator('input[type="checkbox"]').first();
         const openSubcategories = async () => {
             await page.goto(`${EVENT_URL}/settings/subcategories`, { waitUntil: 'domcontentloaded' });
-            await checkbox().waitFor({ state: 'attached', timeout: 20000 });
-            await page.waitForTimeout(1500);
+            await checkbox().waitFor({ state: 'visible', timeout: 20000 });
+            await expect(page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 20000 });
         };
 
         expect(await offered(), `${subcategory} is offered while ticked`).toContain(subcategory);
@@ -224,14 +215,14 @@ test.describe('Event Settings', () => {
         expect(await checkbox().isChecked(), `${subcategory} starts ticked`).toBe(true);
         try {
             await checkbox().uncheck();
-            await page.waitForTimeout(2000);
+            await settings.waitForChangesSaved();
             await openSubcategories();
             expect(await checkbox().isChecked(), 'Unticked after reload').toBe(false);
             expect(await offered(), `${subcategory} is not offered once unticked`).not.toContain(subcategory);
         } finally {
             await openSubcategories();
             if (!await checkbox().isChecked()) await checkbox().check();
-            await page.waitForTimeout(2000);
+            await settings.waitForChangesSaved();
             await openSubcategories();
             expect(await checkbox().isChecked(), `${subcategory} ticked again`).toBe(true);
         }
@@ -243,6 +234,7 @@ test.describe('Event Settings', () => {
     test('Reporting: Send Now requests the activity report', async ({ page }) => {
         await page.goto(`${EVENT_URL}/settings/reporting`, { waitUntil: 'domcontentloaded' });
         await expect(page.getByText('Activity Report', { exact: true })).toBeVisible({ timeout: 20000 });
+        await expect(page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 20000 });
         await expect(page.getByText('Send a report covering the past 7 days of activity within your event to your email address.')).toBeVisible();
         // The report is emailed to the signed-in user's own address (there is no recipient field on the page).
         const response = page.waitForResponse(r => r.request().method() === 'POST' && r.url().endsWith('/export/activities/pdf'), { timeout: 15000 });
@@ -257,6 +249,7 @@ test.describe('Event Settings', () => {
     test('Reporting: the daily report can be scheduled for chosen days, and cleared again', async ({ page }) => {
         await page.goto(`${EVENT_URL}/settings/reporting`, { waitUntil: 'domcontentloaded' });
         await expect(page.getByText('Schedule a Daily Report')).toBeVisible({ timeout: 20000 });
+        await expect(page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 20000 });
         const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
         const box = day => page.locator('label').filter({ hasText: new RegExp(`^\\s*${day}\\s*$`) }).locator('input[type="checkbox"]');
         const state = async () => Object.fromEntries(await Promise.all(days.map(async day => [day, await box(day).isChecked()])));
@@ -264,22 +257,26 @@ test.describe('Event Settings', () => {
         const reopen = async () => {
             await page.goto(`${EVENT_URL}/settings/reporting`, { waitUntil: 'domcontentloaded' });
             await expect(page.getByText('Schedule a Daily Report')).toBeVisible({ timeout: 20000 });
-            await page.waitForTimeout(1500);
+            await expect(page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 20000 });
         };
         const chosen = ['Monday', 'Wednesday'];
         try {
             for (const day of days) {
-                if (chosen.includes(day) !== original[day]) await (chosen.includes(day) ? box(day).check() : box(day).uncheck());
+                if (chosen.includes(day) !== original[day]) {
+                    await (chosen.includes(day) ? box(day).check() : box(day).uncheck());
+                    await settings.waitForChangesSaved();
+                }
             }
-            await page.waitForTimeout(2000);
             await reopen();
             const after = await state();
             for (const day of days) expect(after[day], `${day} after reload`).toBe(chosen.includes(day));
         } finally {
             for (const day of days) {
-                if (await box(day).isChecked() !== original[day]) await (original[day] ? box(day).check() : box(day).uncheck());
+                if (await box(day).isChecked() !== original[day]) {
+                    await (original[day] ? box(day).check() : box(day).uncheck());
+                    await settings.waitForChangesSaved();
+                }
             }
-            await page.waitForTimeout(2000);
             await reopen();
             expect(await state(), 'Schedule restored').toEqual(original);
         }
@@ -287,6 +284,7 @@ test.describe('Event Settings', () => {
 
     test('Xero Check Report: generate, get notified, mark as checked, see the latest 5, download', async ({ page }) => {
         await page.goto(`${EVENT_URL}/settings/reporting`, { waitUntil: 'domcontentloaded' });
+        await expect(page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 20000 });
         await page.getByText('Generated Reports', { exact: true }).click();
         await expect(page.getByText('Xero Comparison Report')).toBeVisible({ timeout: 20000 });
         await expect(page.getByText(/compares what Eventwise holds against Xero/)).toBeVisible();
