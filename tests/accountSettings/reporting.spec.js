@@ -22,8 +22,7 @@ const count = text => parseInt(String(text).replace(/,/g, '').match(/\d+/)[0], 1
 const round = n => Math.round(n * 100) / 100;
 
 async function settle(page) {
-    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
-    await page.waitForTimeout(1500);
+    await expect(page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 15000 });
 }
 
 // Opens /reporting, ticks the events (the list is paged, so it is set to show 50 first), returns the page.
@@ -46,7 +45,7 @@ async function showFifty(page) {
 }
 
 async function settleTags(page) {
-    await page.getByText('Loading Information').waitFor({ state: 'hidden', timeout: 30000 }).catch(() => {});
+    await expect(page.getByText('Loading Information', { exact: true })).toBeHidden({ timeout: 30000 });
     await settle(page);
 }
 
